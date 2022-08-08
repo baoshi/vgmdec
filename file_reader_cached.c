@@ -24,6 +24,35 @@ typedef struct cfr_s
 } cfr_t;
 
 
+
+static uint32_t read_and_cache(cfr_t *ctx, uint8_t *out, uint32_t offset, uint32_t length)
+{
+    uint32_t read = 0, total = 0;
+    fseek(ctx->fd, offset, SEEK_SET);
+    while (length > ctx->cache_size)
+    {
+        read = fread(out, 1, ctx->cache_size, ctx->fd);
+        if (0 == read) break;
+        out += read;
+        total += read;
+        offset += read;
+        length -= read;
+    }
+    if (length > 0)
+    {
+        read = fread(ctx->cache, 1, ctx->cache_size, ctx->fd);
+        if (read > 0)
+        {
+            ctx->cache_offset = offset;
+            ctx->cache_data_length = read;
+            memcpy(out, ctx->cache, length);
+            total += length;
+        }
+    }
+    return total;
+}
+
+
 /*                                                  off    len   o_c_s  o_c_l   c_s
  *  cache off=4,len=3          |4|5|6|                                     
  *  read (1, 3)          |1|2|3|                     1      3            
@@ -31,7 +60,7 @@ typedef struct cfr_s
  *  read (4, 1)                |4|                   4      1      0      1      0 
  *  read (6, 1)                    |6|               6      1      0      1      2
  *  read (4, 3)                |4|5|6|               4      3      0      3      0
- *  read (2, 6)            |2|3|4|5|6|7|8|           2      6      2      3      0
+ *  read (2, 6)            |2|3|4|5|6|7|             2      6      2      3      0
  *  read (6, 1)                    |6|               6      1      0      1      2
  *  read (6, 3)                    |6|7|8|           6      3      0      1      2
  *  read (7, 3)                      |7|8|9|         7      3      
@@ -43,83 +72,48 @@ static uint32_t read(file_reader_t *self, uint8_t *out, uint32_t offset, uint32_
     uint32_t o_c_s; // out_cached_start
     uint32_t o_c_l; // out_cached_length
     uint32_t c_s;   // cached_start
+    uint32_t total = 0;
 
     if (length == 0)
         return 0;
 
-    ctx->cache_data_length = 3;
-    ctx->cache_offset = 4;
+
+    VGM_PRINTF("Read from %d, len = %d\n", offset, length);
 
     // Check if reqest data is already in cache (or part of)
     if ((ctx->cache_data_length > 0) && (offset + length > ctx->cache_offset) && (offset < ctx->cache_offset + ctx->cache_data_length))
     {
         o_c_s = (offset > ctx->cache_offset) ? 0 : (ctx->cache_offset - offset);
-        if (length - o_c_s > ctx->cache_data_length)
-            o_c_l = ctx->cache_data_length;
+        c_s = offset + o_c_s - ctx->cache_offset;
+        if (length - o_c_s > ctx->cache_data_length - c_s)
+            o_c_l = ctx->cache_data_length - c_s;
         else
             o_c_l = length - o_c_s;
-        c_s = offset + o_c_s - ctx->cache_offset;
-        VGM_PRINTF("%d      %d      %d      %d      %d\n", offset, length, o_c_s, o_c_l, c_s);
+        // transfer from catch to output
+        VGM_PRINTF("Copy cache[%d] > out[%d], len = %d\n", c_s, o_c_s, o_c_l);
+        memcpy(out + o_c_s, ctx->cache + c_s, o_c_l);
+        total += o_c_l;
     }
     else
     {
-        VGM_PRINTF("%d      %d\n", offset, length);
+        // fetch fresh data
+        VGM_PRINTF("Fetch whole buffer\n");
+        return read_and_cache(ctx, out, offset, length);
     }
-
-    return 0;
+    // fetch data before cached region
+    if (o_c_s > 0)
+    {
+        VGM_PRINTF("Fetch to out[0], len = %d\n", o_c_s);
+        total += read_and_cache(ctx, out, offset, o_c_s);
+    }
+    // fetch data after cached region
+    if (length > o_c_s + o_c_l)
+    {
+        VGM_PRINTF("Fetch to out[%d], len = %d\n", o_c_s + o_c_l, length - o_c_s - o_c_l);
+        total += read_and_cache(ctx, out + o_c_s + o_c_l, ctx->cache_offset + ctx->cache_data_length, length - o_c_s - o_c_l);
+    }
     
-
-    
-
-    if (((offset + length) <= ctx->cache_offset) || (offset >= ctx->cache_offset + ctx->cache_data_length))
-    {
-        // reading range is completely out side cache
-        if (length <= ctx->cache_size)
-        {
-            fseek(ctx->fd, offset, SEEK_SET);
-            ctx->cache_offset = offset;
-            ctx->cache_data_length = (uint32_t)fread(ctx->cache, 1, ctx->cache_size, ctx->fd);
-            length = (length > ctx->cache_data_length) ? length : ctx->cache_data_length;
-            memcpy(out, ctx->cache, length);
-#ifdef CFR_MEASURE_CACHE_PERFORMACE
-            ctx->cache_miss += length;
-#endif           
-            return length;
-        }
-        else
-        {
-
-        }
-    }
-
-    if (length > 1)
-    {
-        fseek(ctx->fd, offset, SEEK_SET);
-        return (uint32_t)(fread(out, 1, length, ctx->fd));
-    }
-    if ((offset >= ctx->cache_offset) && (offset < ctx->cache_offset + ctx->cache_data_length))
-    {
-        // Cache hit
-#ifdef CFR_MEASURE_CACHE_PERFORMACE
-        ++(ctx->cache_hit);
-#endif
-        * out = ctx->cache[offset - ctx->cache_offset];
-        return 1;
-    }
-    // Cache miss
-#ifdef CFR_MEASURE_CACHE_PERFORMACE
-    ++(ctx->cache_miss);
-#endif
-    fseek(ctx->fd, offset, SEEK_SET);
-    ctx->cache_offset = offset;
-    ctx->cache_data_length = (uint32_t)fread(ctx->cache, 1, ctx->cache_size, ctx->fd);
-    if (ctx->cache_data_length > 0)
-    {
-        *out = ctx->cache[0];
-        return 1;
-    }
-    // Offset is out-of-bound
-    return 0;
+    return total;
 }
 
 
