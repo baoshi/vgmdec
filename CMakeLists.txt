@@ -10,9 +10,9 @@ if (WIN32)
 endif()
 
 # Add source to this project's executable.
-add_executable (vgmdec 
+add_executable (reader_test
 	file_reader_cached.c
-	vgmdec.c
+	reader_test.c
 )
 
 
