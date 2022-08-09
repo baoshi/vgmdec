@@ -57,10 +57,10 @@ int main(int argc, char *argv[])
     int size = reader->size(reader);
     int offset = 0, len;
 
-    for (int i = 0; i < 100; ++i)
+    for (int i = 0; i < 10000; ++i)
     {
-        offset += (rand() % 100);
-        len = rand() % 128 + 1;
+        offset += (rand() % 18);
+        len = rand() % 2048;
         VGM_PRINTF("Test\toff=%d,\tlen=%d:\t", offset, len);
         if (!reader_test(reader, fd, offset, len)) break;
     }
