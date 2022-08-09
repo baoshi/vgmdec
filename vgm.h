@@ -11,6 +11,9 @@ extern "C" {
 #endif
 
 
+#define VGM_GD3_STR_MAX_LEN     64  // Max string length in GD3 tags
+
+
 PACK(struct vgm_header_s
 {
     uint32_t ident;             // 0x00: identification "Vgm " 0x206d6756
@@ -86,25 +89,6 @@ PACK(struct vgm_header_s
     uint8_t  reserved4[7 * 4];
 });
 typedef struct vgm_header_s vgm_header_t;
-
-
-typedef struct vgm_gd3_s
-{
-	uint32_t ident;             // "Gd3 " 0x20336447
-	uint32_t version;           // 0x00 0x01 0x00 0x00
-	uint32_t length;            // length of the following data
-	wchar_t *track_name_en;     // track name in English
-	wchar_t *track_name_jp;     // track name in Japanese
-	wchar_t *game_name_eg;      // game name in English
-	wchar_t *game_name_jp;      // game name in Japanese
-	wchar_t *sys_name_en;       // system name in English
-	wchar_t *sys_name_jp;       // system name in Japanese
-	wchar_t *author_name_en;    // author name in English
-	wchar_t *author_name_jp;    // author name in Japanese
-	wchar_t *release_date;      // release date
-	wchar_t *creator;           // VGM creator name
-	wchar_t *notes;             // notes
-} vgm_gd3_t;
 
 
 typedef struct vgm_s

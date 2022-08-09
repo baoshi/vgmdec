@@ -21,6 +21,6 @@ add_executable (vgmdec
 	vgmdec.c
 )
 
-
+set_property(TARGET vgmdec PROPERTY C_STANDARD 99)
 
 

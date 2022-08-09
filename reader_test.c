@@ -4,8 +4,8 @@
 #include "file_reader_cached.h"
 #include "vgm.h"
 
-const int buf_size = 4096;
-uint8_t buf1[buf_size], buf2[buf_size];
+#define BUF_SIZE 4096
+uint8_t buf1[BUF_SIZE], buf2[BUF_SIZE];
 
 
 bool compare_buf(uint8_t *buf1, uint8_t *buf2, int size)

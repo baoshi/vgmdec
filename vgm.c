@@ -5,8 +5,7 @@
 
 static char * read_gd3_str(file_reader_t *reader, uint32_t *poffset, uint32_t eof, bool convert)
 {
-    static const int max_len = 64;
-    uint16_t temp[max_len + 1];
+    uint16_t temp[VGM_GD3_STR_MAX_LEN + 1];
     int index = 0;
     uint16_t ch;
     while (*poffset < eof)
@@ -14,7 +13,7 @@ static char * read_gd3_str(file_reader_t *reader, uint32_t *poffset, uint32_t eo
         if (reader->read(reader, (uint8_t *)&ch, *poffset, 2) != 2)  break;
         *poffset += 2;
         if (0 == ch) break;
-        if (index < max_len)
+        if (index < VGM_GD3_STR_MAX_LEN)
         {
             temp[index] = ch;
             ++index;
