@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "platform.h"
+#include "file_reader.h"
 
 
 #ifdef __cplusplus
@@ -12,7 +13,7 @@ extern "C" {
 
 PACK(struct vgm_header_s
 {
-    uint32_t ident;             // 0x00: identification "Vgm " (0x56 0x67 0x6d 0x20)
+    uint32_t ident;             // 0x00: identification "Vgm " 0x206d6756
     uint32_t eof_offset;        // 0x04: relative offset to end of file (should be file_length - 4)
     uint32_t version;           // 0x08: BCD version. Ver 1.7.1 is 0x00000171
     uint32_t sn76489_clk;
@@ -69,7 +70,7 @@ PACK(struct vgm_header_s
     uint32_t pokey_clk;
     uint32_t qsound_clock;
     uint32_t scsp_clk;
-    uint32_t extraHeaderOffset; // 0xBC: relative offset to the extra header or 0 if no extra header is present
+    uint32_t extra_header_offset;   // 0xBC: relative offset to the extra header or 0 if no extra header is present
     uint32_t wswan_clk;
     uint32_t vsu_clk;
     uint32_t saa1090_clk;
@@ -87,14 +88,46 @@ PACK(struct vgm_header_s
 typedef struct vgm_header_s vgm_header_t;
 
 
+typedef struct vgm_gd3_s
+{
+	uint32_t ident;             // "Gd3 " 0x20336447
+	uint32_t version;           // 0x00 0x01 0x00 0x00
+	uint32_t length;            // length of the following data
+	wchar_t *track_name_en;     // track name in English
+	wchar_t *track_name_jp;     // track name in Japanese
+	wchar_t *game_name_eg;      // game name in English
+	wchar_t *game_name_jp;      // game name in Japanese
+	wchar_t *sys_name_en;       // system name in English
+	wchar_t *sys_name_jp;       // system name in Japanese
+	wchar_t *author_name_en;    // author name in English
+	wchar_t *author_name_jp;    // author name in Japanese
+	wchar_t *release_date;      // release date
+	wchar_t *creator;           // VGM creator name
+	wchar_t *notes;             // notes
+} vgm_gd3_t;
+
+
 typedef struct vgm_s
 {
-    vgm_header_t* header;
+    file_reader_t *reader;
+    uint32_t version;
+    uint32_t data_offset;
+    uint32_t total_samples;
+    int loops;
+    uint32_t loop_offset;
+    uint32_t loop_samples;
+    char *track_name_en;     // track name in English
+	char *game_name_en;      // game name in English
+	char *sys_name_en;       // system name in English
+	char *author_name_en;    // author name in English
+	char *release_date;      // release date
+	char *creator;           // VGM creator name
+	char *notes;             // notes
 } vgm_t;
 
 
-vgm_t* vgm_create();
-void vgm_destroy(vgm_t* vgm);
+vgm_t* vgm_create(file_reader_t *reader);
+void vgm_destroy(vgm_t *vgm);
 
 
 #ifdef __cplusplus

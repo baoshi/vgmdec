@@ -13,7 +13,7 @@
 # include<stdio.h>
 #include <stdlib.h>
 # define VGM_PRINTF(...) printf(__VA_ARGS__)
-# define VGM_PRINTDBG(...) fprintf(stderr, __VA_ARGS__)
+# define VGM_PRINTDBG(...) printf(__VA_ARGS__)
 # define VGM_PRINTERR(...) fprintf(stderr, __VA_ARGS__)
 # define VGM_MALLOC malloc
 # define VGM_FREE free
@@ -21,7 +21,7 @@
 # include<stdio.h>
 #include <stdlib.h>
 # define VGM_PRINTF(...) printf(__VA_ARGS__)
-# define VGM_PRINTDBG(...) fprintf(stderr, __VA_ARGS__)
+# define VGM_PRINTDBG(...) printf(__VA_ARGS__)
 # define VGM_PRINTERR(...) fprintf(stderr, __VA_ARGS__)
 # define VGM_MALLOC malloc
 # define VGM_FREE free
@@ -29,7 +29,7 @@
 # include<stdio.h>
 #include <stdlib.h>
 # define VGM_PRINTF(...) printf(__VA_ARGS__)
-# define VGM_PRINTDBG(...) fprintf(stderr, __VA_ARGS__)
+# define VGM_PRINTDBG(...) printf(__VA_ARGS__)
 # define VGM_PRINTERR(...) fprintf(stderr, __VA_ARGS__)
 # define VGM_MALLOC malloc
 # define VGM_FREE free

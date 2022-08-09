@@ -15,4 +15,12 @@ add_executable (reader_test
 	reader_test.c
 )
 
+add_executable (vgmdec
+	file_reader_cached.c
+	vgm.c
+	vgmdec.c
+)
+
+
+
 
