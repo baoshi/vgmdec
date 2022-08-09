@@ -136,6 +136,13 @@ vgm_t * vgm_create(file_reader_t *reader)
 }
 
 
+bool vgm_is_supported(vgm_t *vgm)
+{
+    // At this moment we only support NES APU
+    return (vgm->nes_apu_clk > 0);
+}
+
+
 void vgm_destroy(vgm_t *vgm)
 {
     if (vgm)

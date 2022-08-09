@@ -11,7 +11,8 @@ extern "C" {
 #endif
 
 
-#define VGM_GD3_STR_MAX_LEN     64  // Max string length in GD3 tags
+#define VGM_GD3_STR_MAX_LEN     64      // Max string length in GD3 tags
+#define VGM_SAMPLE_RATE         44100   // Fixed sample rate for all VGM files
 
 
 PACK(struct vgm_header_s
@@ -94,6 +95,7 @@ typedef struct vgm_header_s vgm_header_t;
 typedef struct vgm_s
 {
     file_reader_t *reader;
+    // From VGM file
     uint32_t version;
     uint32_t data_offset;
     uint32_t total_samples;
@@ -108,10 +110,13 @@ typedef struct vgm_s
 	char *release_date;     // release date
 	char *creator;          // VGM creator name
 	char *notes;            // notes
-} vgm_t;
+    // Playback control
+    
+ } vgm_t;
 
 
 vgm_t* vgm_create(file_reader_t *reader);
+bool vgm_is_supported(vgm_t* vgm);
 void vgm_destroy(vgm_t *vgm);
 
 
