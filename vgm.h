@@ -100,13 +100,14 @@ typedef struct vgm_s
     int loops;
     uint32_t loop_offset;
     uint32_t loop_samples;
-    char *track_name_en;     // track name in English
-	char *game_name_en;      // game name in English
-	char *sys_name_en;       // system name in English
-	char *author_name_en;    // author name in English
-	char *release_date;      // release date
-	char *creator;           // VGM creator name
-	char *notes;             // notes
+    uint32_t nes_apu_clk;   // NES APU clock
+    char *track_name_en;    // track name in English
+	char *game_name_en;     // game name in English
+	char *sys_name_en;      // system name in English
+	char *author_name_en;   // author name in English
+	char *release_date;     // release date
+	char *creator;          // VGM creator name
+	char *notes;            // notes
 } vgm_t;
 
 

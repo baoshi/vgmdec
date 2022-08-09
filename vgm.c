@@ -96,7 +96,7 @@ vgm_t * vgm_create(file_reader_t *reader)
         }
         // samples
         vgm->total_samples = header.total_samples;
-        // Any loop?
+        // any loop?
         if (header.loop_offset != 0 && header.loop_samples != 0)
         {
             vgm->loops = 1;
@@ -107,6 +107,8 @@ vgm_t * vgm_create(file_reader_t *reader)
         {
             vgm->loops = 0;
         }
+        // NES APU, will verify later
+        vgm->nes_apu_clk = header.nes_apu_clk;
         // GD3
         if (header.gd3_offset != 0)
         {
