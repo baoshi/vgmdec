@@ -168,9 +168,10 @@ bool vgm_prepare_playback(vgm_t *vgm, uint32_t srate)
 }
 
 
-// Execute VGM data, stop when wait command found and return number of samples (in 44100Hz) to generate
-// return 0 with data finished
-// return negative on error
+// Execute VGM data, stop when samples waiting
+// return 1 when samples are waiting.
+// return 0 when data finished.
+// return negative on error.
 static int vgm_exec(vgm_t *vgm)
 {
     // still have unretrieved samples, don't execute any more
@@ -267,6 +268,7 @@ static int vgm_exec(vgm_t *vgm)
                     vgm->data_pos += 3;
                     vgm->samples_waiting = data16;
                     VGM_PRINTDBG("VGM: Wait %d samples\n", vgm->samples_waiting);
+                    r = 1;
                     stop = true;
                 }
                 break;
@@ -274,12 +276,14 @@ static int vgm_exec(vgm_t *vgm)
                 ++vgm->data_pos;
                 vgm->samples_waiting = 735;
                 VGM_PRINTDBG("VGM: Wait 735 samples\n");
+                r = 1;
                 stop = true;
                 break;
             case 0x63:  // wait 882 samples (50th of a second)
                 ++vgm->data_pos;
                 vgm->samples_waiting = 882;
                 VGM_PRINTDBG("VGM: Wait 882 samples\n");
+                r = 1;
                 stop = true;
                 break;
             case 0x66:  // end of sound data
@@ -293,6 +297,7 @@ static int vgm_exec(vgm_t *vgm)
                 {
                     VGM_PRINTDBG("VGM: End\n");
                     vgm->samples_waiting = 0;
+                    r = 0;
                     stop = true;
                 }
                 break;
@@ -337,6 +342,7 @@ static int vgm_exec(vgm_t *vgm)
                 ++vgm->data_pos;
                 vgm->samples_waiting = (data8 & 0x0F) + 1;
                 VGM_PRINTDBG("VGM: Wait %d samples\n", vgm->samples_waiting);
+                r = 1;
                 stop = true;
                 break;
             case 0x80:  // 0x8n: YM2612 port 0 address 2A write from the data bank, then wait n samples
@@ -505,44 +511,39 @@ static int vgm_exec(vgm_t *vgm)
             }  // end of switch-case
         } // end of read data8
     } // end of while loop
-    if (r < 0)
-        return r;
-    return (vgm->samples_waiting);
+    return r;
 }
 
 
 int vgm_get_sample(vgm_t *vgm, int16_t *buf, int size)
 {
-    int32_t samples = 0, r;
+    int samples = 0;
+    
     while (size > 0)
-    {   
-        r = vgm_exec(vgm);
-        if (r < 0)
+    {
+        if (vgm->samples_waiting)
         {
-            VGM_PRINTERR("VGM: Exec error\n");
-            break;
-        }
-        if (r == 0)
-        {
-            VGM_PRINTF("VGM: Finished\n");
-            break;
-        }
-        if (size >= r)
-        {
-            VGM_PRINTDBG("VGM: To retrieve %d samples from APU\n", r);
-            vgm->samples_waiting = 0;
-            // fill r samples to buf
-            samples += r;
-            size -= r;
+            // VGM_PRINTDBG("VGM: Call APU to buffer 1 sample\n");
+            --(vgm->samples_waiting);
+            ++samples;
+            --size;
         }
         else
         {
-            VGM_PRINTDBG("VGM: To retrieve %d samples from APU\n", size);
-            vgm->samples_waiting -= size;
-            // fill size samples to buf
-            samples += size;
-            size = 0;
+            int r = vgm_exec(vgm);
+            if (r < 0)
+            {
+                VGM_PRINTERR("VGM: Exec error\n");
+                samples = -1;
+                break;
+            }
+            else if (r == 0)
+            {
+                VGM_PRINTDBG("VGM: Finished\n");
+                break;
+            }
         }
     }
-    return samples;   
+    // VGM_PRINTDBG("VGM: Get %d samples from APU\n", samples);
+    return samples;
 }

@@ -16,6 +16,7 @@ add_executable (reader_test
 )
 
 add_executable (vgmdec
+	blip_buf.c
 	file_reader_cached.c
 	vgm.c
 	nesapu.c

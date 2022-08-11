@@ -27,10 +27,11 @@ int main(int argc, char *argv[])
             r = vgm_get_sample(vgm, NULL, 1024);
             samples += r;
 
-        } while (r == 1024);
+        } while (r > 0);
+        VGM_PRINTDBG("Played %d samples\n", samples);
         vgm_destroy(vgm);
     }
-
+    
     cfr_show_cache_status(reader);
     cfr_destroy(reader);
 
