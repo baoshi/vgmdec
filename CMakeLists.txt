@@ -18,6 +18,7 @@ add_executable (reader_test
 add_executable (vgmdec
 	file_reader_cached.c
 	vgm.c
+	nesapu.c
 	vgmdec.c
 )
 

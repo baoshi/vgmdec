@@ -2,5 +2,8 @@
     "files.associations": {
         "memory.h": "c",
         "string.h": "c"
+    },
+    "workbench.editorAssociations": {
+        "*.vgm": "hexEditor.hexedit"
     }
 }

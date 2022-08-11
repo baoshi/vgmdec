@@ -23,6 +23,16 @@ int main(int argc, char *argv[])
         vgm_destroy(vgm);
     }
     
+    vgm_prepare_playback(vgm, 48000);
+
+    int r, samples = 0;
+    do 
+    {
+        r = vgm_get_sample(vgm, NULL, 1024);
+        samples += r;
+        
+    } while (r == 1024);
+
     cfr_show_cache_status(reader);
     cfr_destroy(reader);
 

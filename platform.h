@@ -27,7 +27,7 @@
 # define VGM_FREE free
 #elif defined(__APPLE__)
 # include<stdio.h>
-#include <stdlib.h>
+# include <stdlib.h>
 # define VGM_PRINTF(...) printf(__VA_ARGS__)
 # define VGM_PRINTDBG(...) printf(__VA_ARGS__)
 # define VGM_PRINTERR(...) fprintf(stderr, __VA_ARGS__)

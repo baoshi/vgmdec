@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include "platform.h"
 #include "file_reader.h"
+#include "nesapu.h"
 
 
 #ifdef __cplusplus
@@ -102,6 +103,7 @@ typedef struct vgm_s
     int loops;
     uint32_t loop_offset;
     uint32_t loop_samples;
+    uint32_t rate;          // (experimental: to find out 50/60Hz)
     uint32_t nes_apu_clk;   // NES APU clock
     char *track_name_en;    // track name in English
 	char *game_name_en;     // game name in English
@@ -111,14 +113,17 @@ typedef struct vgm_s
 	char *creator;          // VGM creator name
 	char *notes;            // notes
     // Playback control
-    
+    uint32_t sample_rate;       // sample rate
+    uint32_t data_pos;          // position of current data
+    uint32_t samples_waiting;   // # of samples waiting, in 44100Hz unit
+    nesapu_t *apu;              // NES APU
  } vgm_t;
 
 
 vgm_t* vgm_create(file_reader_t *reader);
-bool vgm_is_supported(vgm_t* vgm);
 void vgm_destroy(vgm_t *vgm);
-
+bool vgm_prepare_playback(vgm_t *vgm, uint32_t srate);
+int vgm_get_sample(vgm_t *vgm, int16_t *buf, int size);
 
 #ifdef __cplusplus
 }
