@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "blip_buf.h"
+#include "fixedpoint.h"
 
 
 #ifdef __cplusplus
@@ -24,13 +25,17 @@ typedef struct nesapu_s
     uint16_t blip_buffer_size;
     blip_buffer_t *blip;
     int16_t blip_last_sample;
+    // Sampling cycle control
+    uint32_t sample_cycles;
+    fp16_t sample_residue_fp;
+    fp16_t sample_period_fp;
 } nesapu_t;
 
 
 nesapu_t * nesapu_create(bool format, uint32_t clock, uint32_t srate, uint32_t max_sample_count);
 void nesapu_destroy(nesapu_t *a);
 void nesapu_buffer_sample(nesapu_t *a);
-void nesapu_read_samples(nesapu_t *a);
+void nesapu_read_samples(nesapu_t *a, int16_t *buf, uint32_t samples);
 
 #ifdef __cplusplus
 }

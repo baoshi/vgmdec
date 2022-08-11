@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
     vgm_t *vgm = vgm_create(reader);
     if (vgm)
     {
-        vgm_prepare_playback(vgm, 48000);
+        vgm_prepare_playback(vgm, 44100);
         int r, samples = 0;
         do
         {

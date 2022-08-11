@@ -2,6 +2,14 @@
 #include "platform.h"
 #include "vgm.h"
 
+//#define VGM_ENABLE_DUMP
+
+#ifdef VGM_ENABLE_DUMP
+# define VGM_DUMP(...) VGM_PRINTF(__VA_ARGS__)
+#else
+# define VGM_DUMP(...)
+#endif
+
 
 static char * read_gd3_str(file_reader_t *reader, uint32_t *poffset, uint32_t eof, bool convert)
 {
@@ -118,13 +126,13 @@ vgm_t * vgm_create(file_reader_t *reader)
             read_vgm_gd3(vgm, header.gd3_offset + 0x14);
         }
         // Print Info
-        VGM_PRINTDBG("VGM version %X.%X\n", vgm->version >> 8, vgm->version & 0xff);
-        VGM_PRINTDBG("Total samples: %d+%d (%.2fs+%.2fs)\n", vgm->total_samples, vgm->loop_samples, vgm->total_samples / 44100.0f, vgm->loop_samples / 44100.0f);
-        VGM_PRINTDBG("Track Name:    %s\n", vgm->track_name_en);
-        VGM_PRINTDBG("Game Name:     %s\n", vgm->game_name_en);
-        VGM_PRINTDBG("Author:        %s\n", vgm->author_name_en);
-        VGM_PRINTDBG("Release Date:  %s\n", vgm->release_date);
-        VGM_PRINTDBG("Ripped by:     %s\n", vgm->creator);
+        VGM_DUMP("VGM version %X.%X\n", vgm->version >> 8, vgm->version & 0xff);
+        VGM_DUMP("Total samples: %d+%d (%.2fs+%.2fs)\n", vgm->total_samples, vgm->loop_samples, vgm->total_samples / 44100.0f, vgm->loop_samples / 44100.0f);
+        VGM_DUMP("Track Name:    %s\n", vgm->track_name_en);
+        VGM_DUMP("Game Name:     %s\n", vgm->game_name_en);
+        VGM_DUMP("Author:        %s\n", vgm->author_name_en);
+        VGM_DUMP("Release Date:  %s\n", vgm->release_date);
+        VGM_DUMP("Ripped by:     %s\n", vgm->creator);
         success = true;
     } while (0);
     if (!success)
@@ -158,7 +166,7 @@ void vgm_destroy(vgm_t *vgm)
 
 bool vgm_prepare_playback(vgm_t *vgm, uint32_t srate)
 {
-    vgm->apu = nesapu_create(vgm->rate == 50 ? true : false, vgm->nes_apu_clk, srate);
+    vgm->apu = nesapu_create(vgm->rate == 50 ? true : false, vgm->nes_apu_clk, srate, 1024);
     if (NULL == vgm->apu)
         return false;
     vgm->sample_rate = srate;
@@ -267,7 +275,7 @@ static int vgm_exec(vgm_t *vgm)
                 {
                     vgm->data_pos += 3;
                     vgm->samples_waiting = data16;
-                    VGM_PRINTDBG("VGM: Wait %d samples\n", vgm->samples_waiting);
+                    VGM_DUMP("VGM: Wait %d samples\n", vgm->samples_waiting);
                     r = 1;
                     stop = true;
                 }
@@ -275,14 +283,14 @@ static int vgm_exec(vgm_t *vgm)
             case 0x62:  // wait 735 samples (60th of a second)
                 ++vgm->data_pos;
                 vgm->samples_waiting = 735;
-                VGM_PRINTDBG("VGM: Wait 735 samples\n");
+                VGM_DUMP("VGM: Wait 735 samples\n");
                 r = 1;
                 stop = true;
                 break;
             case 0x63:  // wait 882 samples (50th of a second)
                 ++vgm->data_pos;
                 vgm->samples_waiting = 882;
-                VGM_PRINTDBG("VGM: Wait 882 samples\n");
+                VGM_DUMP("VGM: Wait 882 samples\n");
                 r = 1;
                 stop = true;
                 break;
@@ -290,12 +298,12 @@ static int vgm_exec(vgm_t *vgm)
                 if (vgm->loops > 0)
                 {
                     vgm->data_pos = vgm->loop_offset;
-                    VGM_PRINTDBG("VGM: Loop %d\n", vgm->loops);
+                    VGM_DUMP("VGM: Loop %d\n", vgm->loops);
                     --vgm->loops;
                 }
                 else
                 {
-                    VGM_PRINTDBG("VGM: End\n");
+                    VGM_DUMP("VGM: End\n");
                     vgm->samples_waiting = 0;
                     r = 0;
                     stop = true;
@@ -316,11 +324,11 @@ static int vgm_exec(vgm_t *vgm)
                 else
                 {
                     vgm->data_offset += 7 + data32;
-                    VGM_PRINTDBG("VGM: Data block type=%02x, len=%d\n", tt, data32);
+                    VGM_DUMP("VGM: Data block type=%02x, len=%d\n", tt, data32);
                 }
                 break;
             case 0x68:  // PCM RAM writes, 0x68 0x66 cc oo oo oo dd dd dd ss ss ss
-                VGM_PRINTDBG("VGM: PCM writes\n");
+                VGM_DUMP("VGM: PCM writes\n");
                 vgm->data_pos += 12;
                 break;
             case 0x70:  // 0x7n:  wait n+1 samples
@@ -341,7 +349,7 @@ static int vgm_exec(vgm_t *vgm)
             case 0x7F:
                 ++vgm->data_pos;
                 vgm->samples_waiting = (data8 & 0x0F) + 1;
-                VGM_PRINTDBG("VGM: Wait %d samples\n", vgm->samples_waiting);
+                VGM_DUMP("VGM: Wait %d samples\n", vgm->samples_waiting);
                 r = 1;
                 stop = true;
                 break;
@@ -407,7 +415,7 @@ static int vgm_exec(vgm_t *vgm)
                     break;
                 }
                 vgm->data_pos += 3;
-                VGM_PRINTDBG("VGM: NES APU write reg[$%04X] = 0x%02X\n", aa + 0x4000, dd);
+                VGM_DUMP("VGM: NES APU write reg[$%04X] = 0x%02X\n", aa + 0x4000, dd);
                 break;
             case 0xB5:  // aa dd : MultiPCM, write value dd to register aa
             case 0xB6:  // aa dd : uPD7759, write value dd to register aa
@@ -523,7 +531,7 @@ int vgm_get_sample(vgm_t *vgm, int16_t *buf, int size)
     {
         if (vgm->samples_waiting)
         {
-            // VGM_PRINTDBG("VGM: Call APU to buffer 1 sample\n");
+            nesapu_buffer_sample(vgm->apu);
             --(vgm->samples_waiting);
             ++samples;
             --size;
@@ -539,11 +547,11 @@ int vgm_get_sample(vgm_t *vgm, int16_t *buf, int size)
             }
             else if (r == 0)
             {
-                VGM_PRINTDBG("VGM: Finished\n");
+                VGM_DUMP("VGM: Finished\n");
                 break;
             }
         }
     }
-    // VGM_PRINTDBG("VGM: Get %d samples from APU\n", samples);
+    nesapu_read_samples(vgm->apu, buf, samples);
     return samples;
 }
