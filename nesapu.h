@@ -26,9 +26,12 @@ typedef struct nesapu_s
     blip_buffer_t *blip;
     int16_t blip_last_sample;
     // Sampling cycle control
-    uint32_t sample_cycles;
-    fp16_t sample_residue_fp;
-    fp16_t sample_period_fp;
+    fp16_t sample_accu_fp;      // sampling accumulator (fixed point)
+    fp16_t sample_period_fp;    // sampling period (fixed point)
+    uint32_t sample_timestamp;  // samplling timestamp (for blip frame), in cycles
+    // frame counter
+    fp16_t frame_accu_fp;       // frame counter accumulator (fixed point)
+    fp16_t frame_period_fp;     // frame clock (240Hz) period (fixed point)
 } nesapu_t;
 
 
