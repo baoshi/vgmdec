@@ -26,12 +26,16 @@ typedef struct nesapu_s
     blip_buffer_t *blip;
     int16_t blip_last_sample;
     // Sampling cycle control
-    fp16_t sample_accu_fp;      // sampling accumulator (fixed point)
-    fp16_t sample_period_fp;    // sampling period (fixed point)
+    fp16_t   sample_accu_fp;    // sampling accumulator (fixed point)
+    fp16_t   sample_period_fp;  // sampling period (fixed point)
     uint32_t sample_timestamp;  // samplling timestamp (for blip frame), in cycles
     // frame counter
-    fp16_t frame_accu_fp;       // frame counter accumulator (fixed point)
-    fp16_t frame_period_fp;     // frame clock (240Hz) period (fixed point)
+    uint8_t  sequencer_step;    // sequencer step, 1-2-3-4 or 1-2-3-4-5
+    bool     sequence_mode;     // false: 4-step sequence. true: 5-step sequence. Set by $4017 bit 7
+    bool     quarter_frame;     // true @step 1,2,3,4 for 4-step sequence or @step 1,2,3,5 for 5-step sequence
+    bool     half_frame;        // true @step 2,4 for 4-step sequence or @step 2,5 for 5-step sequence
+    fp16_t   frame_accu_fp;     // frame counter accumulator (fixed point)
+    fp16_t   frame_period_fp;   // frame clock (240Hz) period (fixed point)
 } nesapu_t;
 
 
