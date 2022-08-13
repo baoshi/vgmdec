@@ -9,10 +9,6 @@ static inline void update_frame_counter(nesapu_t *a, fp16_t cycles_fp)
     //
     // https://www.nesdev.org/wiki/APU_Frame_Counter
     //
-
-    // assume sequencer is not clocked
-    a->quarter_frame = false;
-    a->half_frame = false;
     a->frame_accu_fp += cycles_fp;
     if (a->frame_accu_fp >= a->frame_period_fp)
     {
@@ -30,14 +26,24 @@ static inline void update_frame_counter(nesapu_t *a, fp16_t cycles_fp)
             switch (a->sequencer_step)
             {
             case 1:
+                a->quarter_frame = true;
+                a->half_frame = false;
                 break;
             case 2:
+                a->quarter_frame = true;
+                a->half_frame = true;
                 break;
             case 3:
+                a->quarter_frame = true;
+                a->half_frame = false;
                 break;
             case 4:
+                a->quarter_frame = false;
+                a->half_frame = false;
                 break;
             case 5:
+                a->quarter_frame = true;
+                a->half_frame = true;
                 a->sequencer_step = 0;
                 break;
             }
@@ -50,8 +56,27 @@ static inline void update_frame_counter(nesapu_t *a, fp16_t cycles_fp)
             //  2          clock                clock
             //  3          clock                  -
             //  4          clock                clock
+            switch (a->sequencer_step)
+            {
+            case 1:
+                a->quarter_frame = true;
+                a->half_frame = false;
+                break;
+            case 2:
+                a->quarter_frame = true;
+                a->half_frame = true;
+                break;
+            case 3:
+                a->quarter_frame = true;
+                a->half_frame = false;
+                break;
+            case 4:
+                a->quarter_frame = true;
+                a->half_frame = true;
+                a->sequencer_step = 0;
+                break;
+            }
         }
-
     }
 }
 
