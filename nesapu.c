@@ -382,7 +382,6 @@ void nesapu_read_samples(nesapu_t *apu, int16_t *buf, uint32_t samples)
     blip_end_frame(apu->blip, frame_cycles);
     blip_read_samples(apu->blip, (short *)buf, samples, 0);
     // frame_cycles can be less or more than actual clocked out, adjust
-    VGM_PRINTF("Read buffer for %d cycles, actual clocked %d cycles\n", frame_cycles, apu->sample_timestamp);
     apu->sample_accu_fp += int_to_fp15(frame_cycles - apu->sample_timestamp);
     apu->sample_timestamp -= frame_cycles;
 }
