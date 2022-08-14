@@ -38,25 +38,25 @@ typedef struct nesapu_s
     fp16_t   frame_period_fp;   // frame clock (240Hz) period (fixed point)
     // Channel Pulse1
     bool     pulse1_enabled;
-    uint8_t  pulse1_duty;               // 0,1,2,3 -> 12.5%,25%,50%,-25%, see pulse_waveform_table
-    uint8_t  pulse1_duty_index;         // current index into pulse_waveform_table
-    uint8_t  pulse1_lc_value;           // Length counter value
-    bool     pulse1_lchalt_evloop;      // Length counter halt or Envelope loop
-    bool     pulse1_cvol_even;          // Constant volume or Envelope enable
-    bool     pulse1_envelope_start;
-    uint8_t  pulse1_envelope_decay;
-    uint8_t  pulse1_envelope_divider;
-    uint8_t  pulse1_vol_evperiod;       // Volume or period of envelope
+    uint8_t  pulse1_duty;                   // duty cycle, 0,1,2,3 -> 12.5%,25%,50%,-25%, see pulse_waveform_table
+    uint8_t  pulse1_sequencer_value;        // Current suquence (8 steps)
+    uint8_t  pulse1_lc_value;               // Length counter value
+    bool     pulse1_lchalt_evloop;          // Length counter halt or Envelope loop
+    bool     pulse1_cvol_even;              // Constant volume or Envelope enable
+    bool     pulse1_envelope_start;         // Envelope start flag
+    uint8_t  pulse1_envelope_decay;         // Envelope decay value (15, 14, ...)
+    uint8_t  pulse1_envelope_divider;       // Envelope clock divider (from quarter frame clock)
+    uint8_t  pulse1_envelope_volome_period; // Volume or period of envelope
     bool     pulse1_sweep_enabled;      // Sweep enabled
     uint8_t  pulse1_sweep_period;       // Sweep period
     bool     pulse1_sweep_negate;       // Sweep negate flag
     uint8_t  pulse1_sweep_shift;        // Sweep shift
     uint16_t pulse1_sweep_target;       // Sweep target
     bool     pulse1_sweep_reload;       // To reload sweep_value
-    uint8_t  pulse1_sweep_value;        // Sweep divider value
+    uint8_t  pulse1_sweep_divider;      // Sweep divider value
     // Pulse1 channel period
-    uint16_t pulse1_timer_period;
-    uint16_t pulse1_timer_value;
+    uint16_t pulse1_timer_period;           // 2x timer period. 
+    uint16_t pulse1_timer_divider;
     
 } nesapu_t;
 

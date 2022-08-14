@@ -101,22 +101,33 @@ static inline void update_frame_counter(nesapu_t *apu, fp16_t cycles_fp)
 }
 
 
-static inline uint8_t update_pulse1(nesapu_t *apu, fp16_t cycles_fp)
+/*
+ *
+                   Sweep -----> Timer
+                     |            |
+                     |            |
+                     |            v
+                     |        Sequencer   Length Counter
+                     |            |             |
+                     |            |             |
+                     v            v             v
+  Envelope -------> Gate -----> Gate -------> Gate ---> (to mixer)
+ */
+
+static inline uint8_t update_pulse1(nesapu_t *apu, uint32_t cycles)
 {
-    uint8_t vol = 0;
     if (!apu->pulse1_enabled)
     {
-        apu->pulse1_duty_index = 0;
         return 0;
     }
-    // clock envelope @ quater frame
+    //
+    // Clock envelope @ quater frame
     if (apu->quarter_frame)
     {
-        // update envelope on quater frame clock
         if (apu->pulse1_envelope_start)
         {
             apu->pulse1_envelope_decay = 15;
-            apu->pulse1_envelope_divider = apu->pulse1_vol_evperiod;
+            apu->pulse1_envelope_divider = apu->pulse1_envelope_volome_period;
             apu->pulse1_envelope_start = false;
         }
         else
@@ -127,7 +138,7 @@ static inline uint8_t update_pulse1(nesapu_t *apu, fp16_t cycles_fp)
             }
             else
             {
-                apu->pulse1_envelope_divider = apu->pulse1_vol_evperiod;
+                apu->pulse1_envelope_divider = apu->pulse1_envelope_volome_period;
                 if (apu->pulse1_envelope_decay)
                 {
                     --apu->pulse1_envelope_decay;
@@ -139,26 +150,12 @@ static inline uint8_t update_pulse1(nesapu_t *apu, fp16_t cycles_fp)
             }
         }
     }
-    if (apu->pulse1_cvol_even)
-    {
-        // if constant volume is enabled
-        vol = apu->pulse1_vol_evperiod;
-    }
-    else
-    {
-        // use envelope value
-        vol = apu->pulse1_envelope_decay;
-    }
-    // clock length counter @ half frame
-    if (!apu->pulse1_lchalt_evloop && apu->pulse1_lc_value && apu->half_frame)
-    {
-        --(apu->pulse1_lc_value);
-    }
+    //
+    // Clock sweep unit @ half frame 
     // Two conditions cause the sweep unit to mute the channel:
     // 1. If the current period is less than 8, the sweep unit mutes the channel.
     // 2. If at any time the target period is greater than $7FF, the sweep unit mutes the channel.
     bool sweep_mute = ((apu->pulse1_timer_period < 8) || (apu->pulse1_sweep_target > 0x7ff));
-    // clock sweep @ half frame
     if (apu->half_frame)
     {
         // 1. If the divider's counter is zero, the sweep is enabled, and the sweep unit is not muting the channel: The pulse's period is set to the target period.
@@ -166,19 +163,18 @@ static inline uint8_t update_pulse1(nesapu_t *apu, fp16_t cycles_fp)
         //    Otherwise, the divider counter is decremented.
         if (apu->pulse1_sweep_reload)
         {
-            apu->pulse1_sweep_value = apu->pulse1_sweep_period;
+            apu->pulse1_sweep_divider = apu->pulse1_sweep_period;
             apu->pulse1_sweep_reload = false;
         }
         else 
         {
-            if (apu->pulse1_sweep_value)
+            if (apu->pulse1_sweep_divider)
             {
-                --apu->pulse1_sweep_value;
+                --apu->pulse1_sweep_divider;
             } 
-            else if (apu->pulse1_sweep_enabled)
+            else if (apu->pulse1_sweep_enabled && apu->pulse1_sweep_shift)  // TODO: Not sure if pulse1_sweep_enabled must be true
             {
-                // sweep divider outputs clock
-                apu->pulse1_sweep_value = apu->pulse1_sweep_period;
+                // calculate target period
                 uint16_t c = apu->pulse1_timer_period >> apu->pulse1_sweep_shift;
                 if (apu->pulse1_sweep_negate)
                 {
@@ -188,13 +184,27 @@ static inline uint8_t update_pulse1(nesapu_t *apu, fp16_t cycles_fp)
                 {
                     apu->pulse1_sweep_target += c;
                 }
-                if (apu->pulse1_sweep_enabled && apu->pulse1_sweep_shift && !sweep_mute)
+                if (!sweep_mute)
                 {
+                    // when the sweep unit is muting a pulse channel, the channel's current period remains unchanged
                     apu->pulse1_timer_period = apu->pulse1_sweep_shift;   
                 }
+                // reload divider
+                apu->pulse1_sweep_divider = apu->pulse1_sweep_period;
             }
         }
     }
+    //
+    // Clock timer and update sequencer for cycles/2 (clocks every second CPU cycle)
+
+    
+    // 
+    // clock length counter @ half frame
+    if (!apu->pulse1_lchalt_evloop && apu->pulse1_lc_value && apu->half_frame)
+    {
+        --(apu->pulse1_lc_value);
+    }
+
     if (!apu->pulse1_lc_value)              // length is 0, silence
     {
         return 0;
@@ -278,7 +288,7 @@ void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)
         apu->pulse1_duty = (val & 0xc0) >> 6;       // Duty (DD), index to tbl_pulse_waveform
         apu->pulse1_lchalt_evloop = (val & 0x20);   // Length counter halt or Envelope loop (L)
         apu->pulse1_cvol_even = (val & 0x10);       // Constant volume/envelope enable (C)
-        apu->pulse1_vol_evperiod = (val & 0xf);     // Volume or period of envelope (VVVV)
+        apu->pulse1_envelope_volome_period = (val & 0xf);     // Volume or period of envelope (VVVV)
         break;
     case 0x01:  // $4001: EPPP NSSS
         apu->reg4001 = val;
@@ -292,18 +302,20 @@ void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)
         apu->reg4002 = val;
         apu->pulse1_timer_period &= 0xff00;
         apu->pulse1_timer_period |= val;                // Timer period low (TTTT TTTT)
-        apu->pulse1_sweep_target = apu->pulse1_timer_period;             // Whenever the current period changes, the target period also changes
+        apu->pulse1_timer_divider = apu->pulse1_timer_period;           // Count down timer
+        apu->pulse1_sweep_target = apu->pulse1_timer_period;            // Whenever the current period changes, the target period also changes
         break;
-    case 0x03:  // $4003: llll lHHH
+    case 0x03:  // $4003: llll lHHH     Pulse channel 1 length counter load and timer
         apu->reg4003 = val;
         apu->pulse1_lc_value = length_counter_table[(val & 0xf8) >> 3]; // Length counter load (lllll) 
         apu->pulse1_timer_period &= 0x00ff;
         apu->pulse1_timer_period |= ((uint16_t)(val & 0x07) << 8);      // Timer period high 3 bits (TTT)
-        apu->pulse1_sweep_target = apu->pulse1_timer_period;             // Whenever the current period changes, the target period also changes  
+        apu->pulse1_timer_divider = apu->pulse1_timer_period;           // Counter down timer
+        apu->pulse1_sweep_target = apu->pulse1_timer_period;            // Whenever the current period changes, the target period also changes  
         // Side effects : The sequencer is immediately restarted at the first value of the current sequence. 
         // The envelope is also restarted. The period divider is not reset.
         apu->pulse1_envelope_start = true;
-        apu->pulse1_duty_index = 0;
+        apu->pulse1_sequencer_value = 0;
         break;
     case 0x15:  // $4015: ---D NT21
         if (val & 0x01)
@@ -312,8 +324,8 @@ void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)
         }
         else
         {
+            // Writing a zero to any of the channel enable bits will silence that channel and immediately set its length counter to 0.
             apu->pulse1_enabled = true;
-            apu->pulse1_timer_value = 0;
             apu->pulse1_lc_value = 0;
         }
         break;
