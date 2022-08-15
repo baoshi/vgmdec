@@ -292,7 +292,7 @@ static inline uint8_t update_pulse1(nesapu_t *apu, uint32_t cycles)
     // Clock main timer and update sequencer
     // Timer counting downwards from 0 at every other CPU cycle. So we set timer limit to  2x (timer_period + 1).
     int seq_clk = timer16_count_down(&(apu->pulse1_timer_divider), (apu->pulse1_timer_period + 1) << 1, cycles);
-    timer8_count_down(&(apu->pulse1_sequencer_value), 8, seq_clk);
+    if (seq_clk) timer8_count_down(&(apu->pulse1_sequencer_value), 8, seq_clk);
     // 
     // clock length counter @ half frame if not halted
     if (!apu->pulse1_lchalt_evloop && apu->pulse1_length_counter && apu->half_frame)
@@ -306,7 +306,6 @@ static inline uint8_t update_pulse1(nesapu_t *apu, uint32_t cycles)
     if (!pulse_waveform_table[apu->pulse1_duty][apu->pulse1_sequencer_value]) return 0;
     return (apu->pulse1_cvol_envelope ? apu->pulse1_envelope_volume_period: apu->pulse1_envelope_decay);
 }
-
 
 
 nesapu_t * nesapu_create(bool format, uint32_t clock, uint32_t srate, uint32_t max_sample_count)

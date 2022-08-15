@@ -275,7 +275,7 @@ static int vgm_exec(vgm_t *vgm)
                 else
                 {
                     vgm->data_pos += 3;
-                    vgm->samples_waiting = data16;
+                    vgm->samples_waiting = data16 + 1;
                     VGM_DUMP("VGM: Wait %d samples\n", vgm->samples_waiting);
                     r = 1;
                     stop = true;
