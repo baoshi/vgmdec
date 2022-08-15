@@ -3,7 +3,7 @@
 #include "nesapu.h"
 #include "vgm.h"
 
-//#define VGM_ENABLE_DUMP
+#define VGM_ENABLE_DUMP
 
 #ifdef VGM_ENABLE_DUMP
 # define VGM_DUMP(...) VGM_PRINTF(__VA_ARGS__)
@@ -275,7 +275,7 @@ static int vgm_exec(vgm_t *vgm)
                 else
                 {
                     vgm->data_pos += 3;
-                    vgm->samples_waiting = data16 + 1;
+                    vgm->samples_waiting = data16;
                     VGM_DUMP("VGM: Wait %d samples\n", vgm->samples_waiting);
                     r = 1;
                     stop = true;
@@ -528,18 +528,20 @@ static int vgm_exec(vgm_t *vgm)
 int vgm_get_sample(vgm_t *vgm, int16_t *buf, int size)
 {
     int samples = 0;
-    
     while (size > 0)
     {
         if (vgm->samples_waiting)
         {
-            nesapu_buffer_sample(vgm->apu);
-            --(vgm->samples_waiting);
-            ++samples;
-            --size;
+            // If there are samples waiting, read it
+            int to_read = (vgm->samples_waiting >= size) ? size : vgm->samples_waiting;  // read which ever is less
+            nesapu_get_samples(vgm->apu, buf + samples, to_read);
+            vgm->samples_waiting -= to_read;
+            samples += to_read;
+            size -= to_read;
         }
         else
         {
+            // Execute vgm file for more samples
             int r = vgm_exec(vgm);
             if (r < 0)
             {
@@ -554,6 +556,5 @@ int vgm_get_sample(vgm_t *vgm, int16_t *buf, int size)
             }
         }
     }
-    nesapu_read_samples(vgm->apu, buf, samples);
     return samples;
 }

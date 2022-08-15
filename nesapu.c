@@ -32,7 +32,7 @@ static const bool pulse_waveform_table[][8] =
 // Generate table using make_const_tables.c
 
 
-static const fp29_t mixer_pulse_table[31] =
+static const q29_t mixer_pulse_table[31] =
 {
              0,    6232609,   12315540,   18254120,   24053428,   29718306,   35253376,   40663044,
       45951532,   51122860,   56180880,   61129276,   65971580,   70711160,   75351248,   79894960,
@@ -41,7 +41,7 @@ static const fp29_t mixer_pulse_table[31] =
 };
 
 
-static const fp29_t mixer_tnd_table[203] =
+static const q29_t mixer_tnd_table[203] =
 {
              0,    3596940,    7164553,   10703196,   14213217,   17694966,   21148782,   24574998,
       27973946,   31345950,   34691328,   38010392,   41303460,   44570820,   47812788,   51029652,
@@ -123,11 +123,14 @@ static inline int timer8_count_down(uint8_t *divider, uint8_t period, int cycles
 }
 
 
-static inline void update_frame_counter(nesapu_t *apu, fp15_t cycles_fp)
+static inline void update_frame_counter(nesapu_t *apu, int cycles)
 {
     //
     // https://www.nesdev.org/wiki/APU_Frame_Counter
     //
+    // Frame counter clocks 4 or 5 sequencer at 240Hz or 7457.38 CPU clocks.
+    // Fixed point is used here to increase accuracy.
+    q16_t cycles_fp = int_to_q16(cycles);
     apu->frame_accu_fp += cycles_fp;
     if (apu->frame_accu_fp >= apu->frame_period_fp)
     {
@@ -212,7 +215,7 @@ static inline void update_frame_counter(nesapu_t *apu, fp15_t cycles_fp)
                      v            v             v
   Envelope -------> Gate -----> Gate -------> Gate ---> (to mixer)
  */
-static inline uint8_t update_pulse1(nesapu_t *apu, uint32_t cycles)
+static inline uint8_t update_pulse1(nesapu_t *apu, int cycles)
 {
     //
     // Clock envelope @ quater frame
@@ -304,7 +307,7 @@ static inline uint8_t update_pulse1(nesapu_t *apu, uint32_t cycles)
     if (!apu->pulse1_length_counter) return 0;
     if (sweep_mute) return 0;
     if (!pulse_waveform_table[apu->pulse1_duty][apu->pulse1_sequencer_value]) return 0;
-    return (apu->pulse1_cvol_envelope ? apu->pulse1_envelope_volume_period: apu->pulse1_envelope_decay);
+    return (apu->pulse1_constant_volume ? apu->pulse1_envelope_volume_period : apu->pulse1_envelope_decay);
 }
 
 
@@ -321,19 +324,13 @@ nesapu_t * nesapu_create(bool format, uint32_t clock, uint32_t srate, uint32_t m
     apu->blip_buffer_size = max_sample_count;
     apu->blip = blip_new(max_sample_count);
     blip_set_rates(apu->blip, apu->clock_rate, apu->sample_rate);
-    // sampling control
-    apu->sample_accu_fp = 0;
-    apu->sample_period_fp = float_to_fp15((float)apu->clock_rate / apu->sample_rate);
-    apu->sample_timestamp = 0;
-    apu->sample_timestamp_fp = 0;
-    apu->blip_last_sample = 0;
     // frame counter
     apu->sequencer_step = 0;
     apu->sequence_mode = false;
     apu->quarter_frame = false;
     apu->half_frame = false;
     apu->frame_accu_fp = 0;
-    apu->frame_period_fp = float_to_fp15((float)apu->clock_rate / 240.0f);  // 240Hz frame counter
+    apu->frame_period_fp = float_to_q16((float)apu->clock_rate / 240.0f);  // 240Hz frame counter period
     //nesapu_reset(a);
     return apu;
 }
@@ -353,36 +350,45 @@ void nesapu_destroy(nesapu_t *apu)
 }
 
 
-void nesapu_buffer_sample(nesapu_t *apu)
+static inline int16_t nesapu_run_and_sample(nesapu_t *apu, int cycles)
 {
-    apu->sample_accu_fp += apu->sample_period_fp;
-    fp15_t cycles_fp = fp15_round(apu->sample_accu_fp);
-    uint32_t cycles = fp15_to_int(cycles_fp);
-    // step cycles and sample, put result in blip buffer
-    update_frame_counter(apu, cycles_fp);
+    update_frame_counter(apu, cycles);
     uint8_t p1 = update_pulse1(apu, cycles);
     uint8_t p2 = 0;
     uint8_t tr = 0;
     uint8_t ns = 0;
     uint8_t dm = 0;
-    fp29_t f = mixer_pulse_table[p1 + p2] + mixer_tnd_table[3 * tr + 2 * ns + dm];
-    int16_t s16 = fp29_to_s16(f);
-    int16_t delta = s16 - apu->blip_last_sample;
-    apu->blip_last_sample = s16;
-    apu->sample_accu_fp -= cycles_fp;
-    apu->sample_timestamp += cycles;
-    blip_add_delta(apu->blip, apu->sample_timestamp, delta);
+    q29_t f = mixer_pulse_table[p1 + p2] + mixer_tnd_table[3 * tr + 2 * ns + dm];
+    int16_t s16 = q29_to_s16(f);
+    return s16;
 }
 
 
-void nesapu_read_samples(nesapu_t *apu, int16_t *buf, uint32_t samples)
+void nesapu_get_samples(nesapu_t *apu, int16_t *buf, int samples)
 {
-    unsigned int frame_cycles = (unsigned)blip_clocks_needed(apu->blip, samples);
-    blip_end_frame(apu->blip, frame_cycles);
+    int cycles = blip_clocks_needed(apu->blip, samples);
+    int period = cycles / samples; // rough sampling period. blip helps resampling
+    int time = 0;
+    int16_t s;
+    int delta;
+    while (cycles > period)
+    {
+        // run period clocks
+        s = nesapu_run_and_sample(apu, period);
+        delta = s - apu->blip_last_sample;
+        apu->blip_last_sample = s;
+        time += period;
+        blip_add_delta(apu->blip, time, delta);
+        cycles -= period;
+    }
+    // run remaining clocks
+    s = nesapu_run_and_sample(apu, cycles);
+    delta = s - apu->blip_last_sample;
+    apu->blip_last_sample = s;
+    time += cycles;
+    blip_add_delta(apu->blip, time, delta);
+    blip_end_frame(apu->blip, time);
     blip_read_samples(apu->blip, (short *)buf, samples, 0);
-    // frame_cycles can be less or more than actual clocked out, adjust
-    apu->sample_accu_fp += int_to_fp15(frame_cycles - apu->sample_timestamp);
-    apu->sample_timestamp -= frame_cycles;
 }
 
 
@@ -391,41 +397,36 @@ void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)
     switch (reg)
     {
     // Pulse1 regs
-    case 0x00:  // $4000: DDLC VVVV
-        apu->reg4000 = val;
+    case 0x00:  // $4000: DDLC VVVV, Duty (D), envelope loop / length counter halt (L), constant volume (C), volume/envelope (V)
         apu->pulse1_duty = (val & 0xc0) >> 6;               // Duty (DD), index to tbl_pulse_waveform
         apu->pulse1_lchalt_evloop = (val & 0x20);           // Length counter halt or Envelope loop (L)
-        apu->pulse1_cvol_envelope = (val & 0x10);           // Constant volume/envelope enable (C)
+        apu->pulse1_constant_volume = (val & 0x10);         // Constant volume (true) or Envelope enable (false) (C)
         apu->pulse1_envelope_volume_period = (val & 0xf);   // Volume or period of envelope (VVVV)
         break;
-    case 0x01:  // $4001: EPPP NSSS
-        apu->reg4001 = val;
-        apu->pulse1_sweep_enabled = (val & 0x80);       // Sweep enable (E)
-        apu->pulse1_sweep_period = (val & 0x70) >> 4;   // Sweep period (PPP)
-        apu->pulse1_sweep_negate = (val & 0x08);        // Sweep negate (N)
-        apu->pulse1_sweep_shift = val & 0x07;           // Sweep shift (SSS)
-        apu->pulse1_sweep_reload = true;                // Side effects : Sets reload flag 
+    case 0x01:  // $4001: EPPP NSSS, Sweep unit: enabled (E), period (P), negate (N), shift (S)
+        apu->pulse1_sweep_enabled = (val & 0x80);           // Sweep enable (E)
+        apu->pulse1_sweep_period = (val & 0x70) >> 4;       // Sweep period (PPP)
+        apu->pulse1_sweep_negate = (val & 0x08);            // Sweep negate (N)
+        apu->pulse1_sweep_shift = val & 0x07;               // Sweep shift (SSS)
+        apu->pulse1_sweep_reload = true;                    // Side effects : Sets reload flag 
         break;
-    case 0x02:  // $4002: LLLL LLLL
-        apu->reg4002 = val;
+    case 0x02:  // $4002: LLLL LLLL, Timer low (T)
         apu->pulse1_timer_period &= 0xff00;
         apu->pulse1_timer_period |= val;                        // Pulse1 timer period low (TTTT TTTT)
-        apu->pulse1_timer_divider = 0;                          // Timer value
         apu->pulse1_sweep_target = apu->pulse1_timer_period;    // Whenever the current period changes, the target period also changes
         break;
-    case 0x03:  // $4003: llll lHHH     Pulse channel 1 length counter load and timer
-        apu->reg4003 = val;
-        apu->pulse1_length_counter = length_counter_table[(val & 0xf8) >> 3]; // Length counter load (lllll) 
+    case 0x03:  // $4003: llll lHHH, Length counter load (L), timer high (T)
+        apu->pulse1_length_counter = length_counter_table[(val & 0xf8) >> 3];   // Length counter load (lllll) 
         apu->pulse1_timer_period &= 0x00ff;
-        apu->pulse1_timer_period |= ((uint16_t)(val & 0x07) << 8);  // Pulse1 timer period high 3 bits (TTT)
-        apu->pulse1_timer_divider = 0;                              // Timer value
-        apu->pulse1_sweep_target = apu->pulse1_timer_period;        // Whenever the current period changes, the target period also changes  
+        apu->pulse1_timer_period |= ((uint16_t)(val & 0x07) << 8);              // Pulse1 timer period high 3 bits (TTT)
+        apu->pulse1_sweep_target = apu->pulse1_timer_period;                    // Whenever the current period changes, the target period also changes  
         // Side effects : The sequencer is immediately restarted at the first value of the current sequence. 
         // The envelope is also restarted. The period divider is not reset.
         apu->pulse1_envelope_start = true;
         apu->pulse1_sequencer_value = 0;
         break;
-    case 0x15:  // $4015: ---D NT21
+    // Status
+    case 0x15:  // $4015: ---D NT21, Enable DMC (D), noise (N), triangle (T), and pulse channels (2/1)
         if (val & 0x01)
         {
             apu->pulse1_enabled = true;
@@ -439,7 +440,6 @@ void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)
         break;
     // Frame counter
     case 0x17:  // $4017:
-        apu->reg4017 = val;
         apu->sequence_mode = (val & 0x80);
         // Writing to $4017 with bit 7 set ($80) will immediately clock all of its controlled units at the beginning of the 5-step sequence;
         // with bit 7 clear, only the sequence is reset without clocking any of its units. 

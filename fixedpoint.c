@@ -1,7 +1,7 @@
 #include "fixedpoint.h"
 
-// Convert sound sample in fp29_t to S16
-int16_t fp29_to_s16(fp29_t x)
+// Convert sound sample in q29_t to S16
+int16_t q29_to_s16(q29_t x)
 {
     int32_t t = (x >> 13) - 32768;
     int16_t s;
