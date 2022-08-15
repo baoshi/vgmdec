@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
 
     if (argc < 2)
     {
-        VGM_PRINTERR("Usage: vgmdec input\n");
+        VGM_PRINTERR("Usage: vgmdump input\n");
         return -1;
     }
 
