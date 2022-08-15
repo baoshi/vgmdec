@@ -14,9 +14,9 @@ typedef struct cfr_s
     // Private fields
     FILE* fd;
     uint8_t* cache;
-    uint32_t cache_size;
-    uint32_t cache_data_length;
-    uint32_t cache_offset;
+    size_t cache_size;
+    size_t cache_data_length;
+    size_t cache_offset;
 #ifdef CFR_MEASURE_CACHE_PERFORMACE
     unsigned long long cache_hit;
     unsigned long long cache_miss;
@@ -24,10 +24,10 @@ typedef struct cfr_s
 } cfr_t;
 
 
-static uint32_t read_direct(cfr_t *ctx, uint8_t *out, uint32_t offset, uint32_t length)
+static size_t read_direct(cfr_t *ctx, uint8_t *out, size_t offset, size_t length)
 {
-    uint32_t read = 0, total = 0;
-    fseek(ctx->fd, offset, SEEK_SET);
+    size_t read = 0, total = 0;
+    fseek(ctx->fd, (long)offset, SEEK_SET);
     while (length > ctx->cache_size)
     {
         read = fread(out, 1, ctx->cache_size, ctx->fd);
@@ -66,13 +66,13 @@ static uint32_t read_direct(cfr_t *ctx, uint8_t *out, uint32_t offset, uint32_t 
  *  read (7, 3)                      |7|8|9|         7      3      x      x      x
  */
 
-static uint32_t read(file_reader_t *self, uint8_t *out, uint32_t offset, uint32_t length)
+static size_t read(file_reader_t *self, uint8_t *out, size_t offset, size_t length)
 {
     cfr_t *ctx = (cfr_t *)self;
-    uint32_t o_c_s; // out_cached_start
-    uint32_t o_c_l; // out_cached_length
-    uint32_t c_s;   // cached_start
-    uint32_t total = 0, temp;
+    size_t o_c_s; // out_cached_start
+    size_t o_c_l; // out_cached_length
+    size_t c_s;   // cached_start
+    size_t total = 0, temp;
 
     if (length == 0)
         return 0;
@@ -125,21 +125,21 @@ static uint32_t read(file_reader_t *self, uint8_t *out, uint32_t offset, uint32_
 }
 
 
-static uint32_t size(file_reader_t *self)
+static size_t size(file_reader_t *self)
 {
     cfr_t *ctx = (cfr_t*)self;
     if (ctx && ctx->fd)
     {
         fseek(ctx->fd, 0, SEEK_END);
-        size_t len = ftell(ctx->fd);
-        return (uint32_t)len;
+        long len = ftell(ctx->fd);
+        return (size_t)len;
     }
     return 0;
 }
 
 
 
-file_reader_t * cfr_create(const char* fn, uint32_t cache_size)
+file_reader_t * cfr_create(const char* fn, size_t cache_size)
 {
     FILE *fd = 0;
     cfr_t *ctx = 0;

@@ -14,8 +14,8 @@ typedef struct file_reader_s file_reader_t;
 struct file_reader_s
 {
     file_reader_t* self;
-    uint32_t(*read)(file_reader_t* self, uint8_t* out, uint32_t offset, uint32_t length);
-    uint32_t(*size)(file_reader_t* self);
+    size_t (*read)(file_reader_t* self, uint8_t* out, size_t offset, size_t length);
+    size_t (*size)(file_reader_t* self);
 };
 
 

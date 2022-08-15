@@ -31,12 +31,12 @@ static char * read_gd3_str(file_reader_t *reader, uint32_t *poffset, uint32_t eo
     temp[index] = 0;
     if (convert && (index > 0))
     {
-        char *out = VGM_MALLOC(index + 1);
+        char *out = VGM_MALLOC((size_t)(index + 1));
         if (out)
         {
             for (int i = 0; i <= index; ++i)
             {
-                out[i] = temp[i] & 0xff;
+                out[i] = (char)(temp[i] & 0xff);
             }
             return out;
         }
@@ -165,13 +165,13 @@ void vgm_destroy(vgm_t *vgm)
 }
 
 
-bool vgm_prepare_playback(vgm_t *vgm, uint32_t srate)
+bool vgm_prepare_playback(vgm_t *vgm, unsigned int srate)
 {
     vgm->apu = nesapu_create(vgm->rate == 50 ? true : false, vgm->nes_apu_clk, srate, 1024);
     if (NULL == vgm->apu)
         return false;
     vgm->sample_rate = srate;
-    vgm->data_pos = vgm->data_offset;
+    vgm->data_pos = (size_t)vgm->data_offset;
     vgm->samples_waiting = 0;
     return true;
 }
@@ -525,7 +525,7 @@ static int vgm_exec(vgm_t *vgm)
 }
 
 
-int vgm_get_sample(vgm_t *vgm, int16_t *buf, int size)
+int vgm_get_sample(vgm_t *vgm, int16_t *buf, unsigned int size)
 {
     int samples = 0;
     while (size > 0)
@@ -533,7 +533,7 @@ int vgm_get_sample(vgm_t *vgm, int16_t *buf, int size)
         if (vgm->samples_waiting)
         {
             // If there are samples waiting, read it
-            int to_read = ((int)vgm->samples_waiting >= size) ? size : (int)vgm->samples_waiting;  // read which ever is less
+            unsigned int to_read = (vgm->samples_waiting >= size) ? size : vgm->samples_waiting;  // read which ever is less
             nesapu_get_samples(vgm->apu, buf + samples, to_read);
             vgm->samples_waiting -= to_read;
             samples += to_read;

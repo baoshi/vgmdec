@@ -10,7 +10,7 @@ extern "C" {
 #define CFR_MEASURE_CACHE_PERFORMACE
 
 
-file_reader_t * cfr_create(const char* fn, uint32_t cache_size);
+file_reader_t * cfr_create(const char* fn, size_t cache_size);
 
 void cfr_destroy(file_reader_t* cfr);
 

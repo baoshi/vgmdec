@@ -7,6 +7,6 @@ int16_t q29_to_s16(q29_t x)
     int16_t s;
     if (t > 32767) s = 32767;
     else if (t < -32768) s = -32768;
-    else s = t;
+    else s = (int16_t)t;
     return s;
 }

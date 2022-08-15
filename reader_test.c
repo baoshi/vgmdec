@@ -8,9 +8,9 @@
 uint8_t buf1[BUF_SIZE], buf2[BUF_SIZE];
 
 
-bool compare_buf(uint8_t *buf1, uint8_t *buf2, int size)
+bool compare_buf(uint8_t *buf1, uint8_t *buf2, size_t size)
 {
-    for (int i = 0; i < size; ++i)
+    for (size_t i = 0; i < size; ++i)
     {
         if (buf1[i] != buf2[i]) 
             return false;
@@ -19,11 +19,11 @@ bool compare_buf(uint8_t *buf1, uint8_t *buf2, int size)
 }
 
 
-bool reader_test(file_reader_t *reader, FILE *fd, int offset, int len)
+bool reader_test(file_reader_t *reader, FILE *fd, size_t offset, size_t len)
 {
-    int len1, len2;
+    size_t len1, len2;
 
-    fseek(fd, offset, SEEK_SET);
+    fseek(fd, (long)offset, SEEK_SET);
     len1 = fread(buf1, 1, len, fd);
     len2 = reader->read(reader, buf2, offset, len);
     if ((len1 == len2) && compare_buf(buf1, buf2, len1))
@@ -54,14 +54,13 @@ int main(int argc, char *argv[])
     time_t t;
     srand((unsigned)time(&t));
 
-    int size = reader->size(reader);
-    int offset = 0, len;
+    size_t offset = 0, len;
 
     for (int i = 0; i < 10000; ++i)
     {
-        offset += (rand() % 18);
-        len = rand() % 2048;
-        VGM_PRINTF("Test\toff=%d,\tlen=%d:\t", offset, len);
+        offset += (size_t)((rand() % 18));
+        len = (size_t)(rand() % 2048);
+        VGM_PRINTF("Test\toff=%lu,\tlen=%lu:\t", offset, len);
         if (!reader_test(reader, fd, offset, len)) break;
     }
     

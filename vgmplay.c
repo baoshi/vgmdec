@@ -15,17 +15,30 @@ static Uint32 buffer_ready_event_type;
 
 void sdl_audio_callback(void* user, Uint8* stream, int len)
 {
-    int samples = len / 2; // len is in byte, each sample is 2 bytes
+    unsigned int samples = (unsigned int)(len / 2); // len is in byte, each sample is 2 bytes
     if (samples > 0)
     {
-        samples = vgm_get_sample((vgm_t*)user, buffer, samples);
-        SDL_memcpy(stream, (void *)buffer, len);
+        int r = vgm_get_sample((vgm_t*)user, buffer, samples);
+        if (r == samples)   // all sampels are received
+        {
+            SDL_memcpy(stream, (void *)buffer, (size_t)len);
+        }
+        else if (r > 0)     // not all samples are received
+        {
+            SDL_memset(stream, 0, (size_t)len);
+            SDL_memcpy(stream, (void *)buffer, (size_t)(r * 2));
+        }
+        else
+        {
+            SDL_memset(stream, 0, (size_t)len);
+        }
+        // Get a copy of data to main loop
         SDL_Event e;
         SDL_memset(&e, 0, sizeof(e));
         e.type = buffer_ready_event_type;
         e.user.code = 0;
         e.user.data1 = (void*)buffer;
-        e.user.data2 = (void*)(intptr_t)samples;
+        e.user.data2 = (void*)(intptr_t)r;
         SDL_PushEvent(&e);
     }
 }
@@ -115,7 +128,7 @@ int main(int argc, char *argv[])
                 default:
                     if (event.type == buffer_ready_event_type)
                     {
-                        int16_t* b = (int16_t*)event.user.data1;
+                        //int16_t* b = (int16_t*)event.user.data1;
                         int l = (int)(intptr_t)event.user.data2;
                         if (l < SDL_BUFFER_SIZE)
                         {

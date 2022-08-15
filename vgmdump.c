@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
         {
             nsamples = vgm_get_sample(vgm, buffer, SOUND_BUFFER_SIZE);
             if (nsamples > 0)
-                fwrite(buffer, sizeof(int16_t), nsamples, fd);
+                fwrite(buffer, sizeof(int16_t), (size_t)nsamples, fd);
         } while (nsamples == SOUND_BUFFER_SIZE);
         fclose(fd);
     } while (0);

@@ -7,7 +7,7 @@
 // Length Counter (Pulse1, Pulse2, Triangle, Noise)
 // http://wiki.nesdev.org/w/index.php/APU_Length_Counter
 //
-static const int length_counter_table[32] = 
+static const unsigned int length_counter_table[32] = 
 {
     10, 254, 20,  2, 40,  4, 80,  6, 160,  8, 60, 10, 14, 12, 26, 14,
     12,  16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30
@@ -76,15 +76,15 @@ static const q29_t mixer_tnd_table[203] =
 /**
  * @brief Count down timer
  * 
- * @param divider   Input initial divider value. When counting finish, return finish divider value
- * @param period    Counter period
- * @return int      Number of times divider has reloaded from 0 to next period
+ * @param divider       Input initial divider value. When counting finish, return finish divider value
+ * @param period        Counter period
+ * @return unsigned int Number of times divider has reloaded from 0 to next period
  *
  */
-static inline int timer_count_down(int *divider, int period, int cycles)
+static inline unsigned int timer_count_down(unsigned int *divider, unsigned int period, unsigned int cycles)
 {
-    int clocks = cycles / period;
-    int extra = cycles % period;
+    unsigned int clocks = cycles / period;
+    unsigned int extra = cycles % period;
     if (extra > *divider)
     {
         *divider = *divider + period - extra;
@@ -98,7 +98,7 @@ static inline int timer_count_down(int *divider, int period, int cycles)
 }
 
 
-static inline void update_frame_counter(nesapu_t *apu, int cycles)
+static inline void update_frame_counter(nesapu_t *apu, unsigned int cycles)
 {
     //
     // https://www.nesdev.org/wiki/APU_Frame_Counter
@@ -190,7 +190,7 @@ static inline void update_frame_counter(nesapu_t *apu, int cycles)
                      v            v             v
   Envelope -------> Gate -----> Gate -------> Gate ---> (to mixer)
  */
-static inline int update_pulse1(nesapu_t *apu, int cycles)
+static inline unsigned int update_pulse1(nesapu_t *apu, unsigned int cycles)
 {
     //
     // Clock envelope @ quater frame
@@ -247,7 +247,7 @@ static inline int update_pulse1(nesapu_t *apu, int cycles)
             else if (apu->pulse1_sweep_enabled && apu->pulse1_sweep_shift)  // TODO: Not sure if pulse1_sweep_enabled must be true
             {
                 // Calculate target period.
-                uint16_t c = apu->pulse1_timer_period >> apu->pulse1_sweep_shift;
+                unsigned int c = apu->pulse1_timer_period >> apu->pulse1_sweep_shift;
                 if (apu->pulse1_sweep_negate)
                 {
                     apu->pulse1_sweep_target -= c + 1;
@@ -269,7 +269,7 @@ static inline int update_pulse1(nesapu_t *apu, int cycles)
     //
     // Clock main timer and update sequencer
     // Timer counting downwards from 0 at every other CPU cycle. So we set timer limit to  2x (timer_period + 1).
-    int seq_clk = timer_count_down(&(apu->pulse1_timer_divider), (apu->pulse1_timer_period + 1) << 1, cycles);
+    unsigned int seq_clk = timer_count_down(&(apu->pulse1_timer_divider), (apu->pulse1_timer_period + 1) << 1, cycles);
     if (seq_clk) timer_count_down(&(apu->pulse1_sequencer_value), 8, seq_clk);
     // 
     // clock length counter @ half frame if not halted
@@ -286,7 +286,7 @@ static inline int update_pulse1(nesapu_t *apu, int cycles)
 }
 
 
-static inline int update_pulse2(nesapu_t* apu, int cycles)
+static inline unsigned int update_pulse2(nesapu_t* apu, unsigned int cycles)
 {
     //
     // Clock envelope @ quater frame
@@ -343,7 +343,7 @@ static inline int update_pulse2(nesapu_t* apu, int cycles)
             else if (apu->pulse2_sweep_enabled && apu->pulse2_sweep_shift)  // TODO: Not sure if pulse2_sweep_enabled must be true
             {
                 // Calculate target period.
-                uint16_t c = apu->pulse2_timer_period >> apu->pulse2_sweep_shift;
+                unsigned int c = apu->pulse2_timer_period >> apu->pulse2_sweep_shift;
                 if (apu->pulse2_sweep_negate)
                 {
                     apu->pulse2_sweep_target -= c;
@@ -365,7 +365,7 @@ static inline int update_pulse2(nesapu_t* apu, int cycles)
     //
     // Clock main timer and update sequencer
     // Timer counting downwards from 0 at every other CPU cycle. So we set timer limit to  2x (timer_period + 1).
-    int seq_clk = timer_count_down(&(apu->pulse2_timer_divider), (apu->pulse2_timer_period + 1) << 1, cycles);
+    unsigned int seq_clk = timer_count_down(&(apu->pulse2_timer_divider), (apu->pulse2_timer_period + 1) << 1, cycles);
     if (seq_clk) timer_count_down(&(apu->pulse2_sequencer_value), 8, seq_clk);
     // 
     // clock length counter @ half frame if not halted
@@ -382,7 +382,7 @@ static inline int update_pulse2(nesapu_t* apu, int cycles)
 }
 
 
-nesapu_t * nesapu_create(bool format, int clock, int srate, int max_sample_count)
+nesapu_t * nesapu_create(bool format, unsigned int clock, unsigned int srate, unsigned int max_sample_count)
 {
     nesapu_t *apu = (nesapu_t*)VGM_MALLOC(sizeof(nesapu_t));
     if (NULL == apu)
@@ -392,8 +392,7 @@ nesapu_t * nesapu_create(bool format, int clock, int srate, int max_sample_count
     apu->clock_rate = clock;
     apu->sample_rate = srate;
     // blip
-    apu->blip_buffer_size = max_sample_count;
-    apu->blip = blip_new(max_sample_count);
+    apu->blip = blip_new((int)max_sample_count);
     blip_set_rates(apu->blip, apu->clock_rate, apu->sample_rate);
     // frame counter
     apu->sequencer_step = 0;
@@ -421,25 +420,25 @@ void nesapu_destroy(nesapu_t *apu)
 }
 
 
-static inline int16_t nesapu_run_and_sample(nesapu_t *apu, int cycles)
+static inline int16_t nesapu_run_and_sample(nesapu_t *apu, unsigned int cycles)
 {
     update_frame_counter(apu, cycles);
-    int p1 = update_pulse1(apu, cycles);
-    int p2 = update_pulse2(apu, cycles);;
-    int tr = 0;
-    int ns = 0;
-    int dm = 0;
+    unsigned int p1 = update_pulse1(apu, cycles);
+    unsigned int p2 = update_pulse2(apu, cycles);;
+    unsigned int tr = 0;
+    unsigned int ns = 0;
+    unsigned int dm = 0;
     q29_t f = mixer_pulse_table[p1 + p2] + mixer_tnd_table[3 * tr + 2 * ns + dm];
     int16_t s16 = q29_to_s16(f);
     return s16;
 }
 
 
-void nesapu_get_samples(nesapu_t *apu, int16_t *buf, int samples)
+void nesapu_get_samples(nesapu_t *apu, int16_t *buf, unsigned int samples)
 {
-    int cycles = blip_clocks_needed(apu->blip, samples);
-    int period = cycles / samples; // rough sampling period. blip helps resampling
-    int time = 0;
+    unsigned int cycles = (unsigned int)blip_clocks_needed(apu->blip, (int)samples);
+    unsigned int period = cycles / samples; // rough sampling period. blip helps resampling
+    unsigned int time = 0;
     int16_t s;
     int delta;
     while (cycles > period)
@@ -459,7 +458,7 @@ void nesapu_get_samples(nesapu_t *apu, int16_t *buf, int samples)
     time += cycles;
     blip_add_delta(apu->blip, time, delta);
     blip_end_frame(apu->blip, time);
-    blip_read_samples(apu->blip, (short *)buf, samples, 0);
+    blip_read_samples(apu->blip, (short *)buf, (int)samples, 0);
 }
 
 
@@ -489,7 +488,7 @@ void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)
     case 0x03:  // $4003: llll lHHH, Length counter load (L), timer high (T)
         apu->pulse1_length_counter = length_counter_table[(val & 0xf8) >> 3];   // Length counter load (lllll) 
         apu->pulse1_timer_period &= 0x00ff;
-        apu->pulse1_timer_period |= (val & 0x07) << 8;          // Pulse1 timer period high 3 bits (TTT)
+        apu->pulse1_timer_period |= ((unsigned int)(val & 0x07)) << 8;          // Pulse1 timer period high 3 bits (TTT)
         apu->pulse1_sweep_target = apu->pulse1_timer_period;    // Whenever the current period changes, the target period also changes  
         // Side effects : The sequencer is immediately restarted at the first value of the current sequence. 
         // The envelope is also restarted. The period divider is not reset.
@@ -518,7 +517,7 @@ void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)
     case 0x07:  // $4007: llll lHHH, Length counter load (L), timer high (T)
         apu->pulse2_length_counter = length_counter_table[(val & 0xf8) >> 3];   // Length counter load (lllll) 
         apu->pulse2_timer_period &= 0x00ff;
-        apu->pulse2_timer_period |= (val & 0x07) << 8;          // Pulse1 timer period high 3 bits (TTT)
+        apu->pulse2_timer_period |= ((unsigned int)(val & 0x07)) << 8;          // Pulse1 timer period high 3 bits (TTT)
         apu->pulse2_sweep_target = apu->pulse1_timer_period;    // Whenever the current period changes, the target period also changes  
         // Side effects : The sequencer is immediately restarted at the first value of the current sequence. 
         // The envelope is also restarted. The period divider is not reset.
