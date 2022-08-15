@@ -1,7 +1,6 @@
-﻿# CMakeList.txt : CMake project for vgm-decoder, include source and define
-# project specific logic here.
-#
-cmake_minimum_required (VERSION 3.8)
+﻿cmake_minimum_required (VERSION 3.13)
+
+set(CMAKE_VERBOSE_MAKEFILE ON)
 
 project ("vgmdec")
 
@@ -28,7 +27,7 @@ if (WIN32)
 	)
 	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
 	target_link_libraries(vgmplay ${SDL2_LIBRARIES})
-	set_property(TARGET vgmplay PROPERTY C_STANDARD 99)
+	set_target_properties(vgmplay PROPERTIES C_STANDARD 99)
 
 	add_executable (vgmdump
 		blip_buf.c
@@ -38,7 +37,7 @@ if (WIN32)
 		nesapu.c
 		vgmdump.c
 	)
-	set_property(TARGET vgmdump PROPERTY C_STANDARD 99)
+	set_target_properties(vgmdump PROPERTIES C_STANDARD 99)
 
 elseif (UNIX)
 

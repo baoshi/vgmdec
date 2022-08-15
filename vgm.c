@@ -3,7 +3,7 @@
 #include "nesapu.h"
 #include "vgm.h"
 
-#define VGM_ENABLE_DUMP
+// #define VGM_ENABLE_DUMP
 
 #ifdef VGM_ENABLE_DUMP
 # define VGM_DUMP(...) VGM_PRINTF(__VA_ARGS__)
@@ -533,7 +533,7 @@ int vgm_get_sample(vgm_t *vgm, int16_t *buf, int size)
         if (vgm->samples_waiting)
         {
             // If there are samples waiting, read it
-            int to_read = (vgm->samples_waiting >= size) ? size : vgm->samples_waiting;  // read which ever is less
+            int to_read = ((int)vgm->samples_waiting >= size) ? size : (int)vgm->samples_waiting;  // read which ever is less
             nesapu_get_samples(vgm->apu, buf + samples, to_read);
             vgm->samples_waiting -= to_read;
             samples += to_read;
