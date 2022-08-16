@@ -3,7 +3,8 @@
 #include "nesapu.h"
 #include "vgm.h"
 
- //#define VGM_ENABLE_DUMP
+#define VGM_ENABLE_DUMP
+#define VGM_ENABLE_DUMP
 
 #ifdef VGM_ENABLE_DUMP
 # define VGM_DUMP(...) VGM_PRINTF(__VA_ARGS__)
@@ -188,12 +189,12 @@ static int vgm_exec(vgm_t *vgm)
 
     int r = 0;
     bool stop = false;
+    file_reader_t* reader = vgm->reader;
+    uint8_t data8, tt, aa, dd;
+    uint16_t data16;
+    uint32_t data32;
     while (!stop)
     {
-        uint8_t data8, tt, aa, dd;
-        uint16_t data16;
-        uint32_t data32;
-        file_reader_t *reader = vgm->reader;
         if (reader->read(reader, &data8, vgm->data_pos, 1) != 1)
         {
             stop = true;
@@ -315,7 +316,6 @@ static int vgm_exec(vgm_t *vgm)
                         // ss ss ss ss = size of data
                         // (data) = data
                 reader->read(reader, &tt, vgm->data_pos + 2, 1);  // tt
-                vgm->data_pos += 1;
                 data32 = 0;
                 if (reader->read(reader, (uint8_t *)&data32, vgm->data_pos + 3, 4) != 4)
                 {
@@ -324,7 +324,8 @@ static int vgm_exec(vgm_t *vgm)
                 }
                 else
                 {
-                    vgm->data_offset += 7 + data32;
+                    // TODO: Parse and save data block
+                    vgm->data_pos += 7 + data32;
                     VGM_DUMP("VGM: Data block type=%02x, len=%d\n", tt, data32);
                 }
                 break;
@@ -455,7 +456,7 @@ static int vgm_exec(vgm_t *vgm)
             case 0xCD:
             case 0xCE:
             case 0xCF:
-                vgm->data_offset += 4;
+                vgm->data_pos += 4;
                 break;
             case 0xD0:  // pp aa dd : YMF278B port pp, write value dd to register aa
             case 0xD1:  // pp aa dd : YMF271 port pp, write value dd to register aa
