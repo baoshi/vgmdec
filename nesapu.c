@@ -141,8 +141,17 @@ static inline void update_frame_counter(nesapu_t *apu, unsigned int cycles)
     //
     // Frame counter clocks 4 or 5 sequencer at 240Hz or 7457.38 CPU clocks.
     // Fixed point is used here to increase accuracy.
-    apu->quarter_frame = false;
-    apu->half_frame = false;
+    if (apu->frame_force_clock)
+    {
+        apu->frame_quarter = true;
+        apu->frame_half = true;
+        apu->frame_force_clock = false;
+    }
+    else
+    {
+        apu->frame_quarter = false;
+        apu->frame_half = false;
+    }
     q16_t cycles_fp = int_to_q16(cycles);
     apu->frame_accu_fp += cycles_fp;
     if (apu->frame_accu_fp >= apu->frame_period_fp)
@@ -152,7 +161,7 @@ static inline void update_frame_counter(nesapu_t *apu, unsigned int cycles)
         if (apu->sequence_mode)
         {
             // 5 step mode
-            // step      quarter_frame         half_frame
+            // step      frame_quarter         frame_half
             //  1          clock                  -
             //  2          clock                clock
             //  3          clock                  -
@@ -161,24 +170,21 @@ static inline void update_frame_counter(nesapu_t *apu, unsigned int cycles)
             switch (apu->sequencer_step)
             {
             case 1:
-                apu->quarter_frame = true;
-                apu->half_frame = false;
+                apu->frame_quarter = true;
                 break;
             case 2:
-                apu->quarter_frame = true;
-                apu->half_frame = true;
+                apu->frame_quarter = true;
+                apu->frame_half = true;
                 break;
             case 3:
-                apu->quarter_frame = true;
-                apu->half_frame = false;
+                apu->frame_quarter = true;
                 break;
             case 4:
-                apu->quarter_frame = false;
-                apu->half_frame = false;
+                apu->frame_quarter = false;
                 break;
             case 5:
-                apu->quarter_frame = true;
-                apu->half_frame = true;
+                apu->frame_quarter = true;
+                apu->frame_half = true;
                 apu->sequencer_step = 0;
                 break;
             }
@@ -186,7 +192,7 @@ static inline void update_frame_counter(nesapu_t *apu, unsigned int cycles)
         else
         {
             // 4 step mode
-            // step      quarter_frame         half_frame
+            // step      quarter_frame         frame_half
             //  1          clock                  -
             //  2          clock                clock
             //  3          clock                  -
@@ -194,20 +200,18 @@ static inline void update_frame_counter(nesapu_t *apu, unsigned int cycles)
             switch (apu->sequencer_step)
             {
             case 1:
-                apu->quarter_frame = true;
-                apu->half_frame = false;
+                apu->frame_quarter = true;
                 break;
             case 2:
-                apu->quarter_frame = true;
-                apu->half_frame = true;
+                apu->frame_quarter = true;
+                apu->frame_half = true;
                 break;
             case 3:
-                apu->quarter_frame = true;
-                apu->half_frame = false;
+                apu->frame_quarter = true;
                 break;
             case 4:
-                apu->quarter_frame = true;
-                apu->half_frame = true;
+                apu->frame_quarter = true;
+                apu->frame_half = true;
                 apu->sequencer_step = 0;
                 break;
             }
@@ -234,7 +238,7 @@ static inline unsigned int update_pulse(nesapu_t *apu, int ch, unsigned int cycl
     //
     // Clock envelope @ quater frame
     // https://www.nesdev.org/wiki/APU_Envelope
-    if (apu->quarter_frame)
+    if (apu->frame_quarter)
     {
         if (apu->pulse[ch].envelope_start)
         {
@@ -270,7 +274,7 @@ static inline unsigned int update_pulse(nesapu_t *apu, int ch, unsigned int cycl
     // 1. If the current period is less than 8, the sweep unit mutes the channel.
     // 2. If at any time the target period is greater than $7FF, the sweep unit mutes the channel.
     bool sweep_mute = ((apu->pulse[ch].timer_period < 8) || (apu->pulse[ch].sweep_target > 0x7ff));
-    if (apu->half_frame)
+    if (apu->frame_half)
     {
         // 1. If the divider's counter is zero, the sweep is enabled, and the sweep unit is not muting the channel: The pulse's period is set to the target period.
         // 2. If the divider's counter is zero or the reload flag is true: The divider counter is set to P and the reload flag is cleared.
@@ -318,7 +322,7 @@ static inline unsigned int update_pulse(nesapu_t *apu, int ch, unsigned int cycl
     // 
     // Clock length counter @ half frame if not halted
     // https://www.nesdev.org/wiki/APU_Length_Counter
-    if (!apu->pulse[ch].lchalt_evloop && apu->pulse[ch].length_counter && apu->half_frame)
+    if (!apu->pulse[ch].lchalt_evloop && apu->pulse[ch].length_counter && apu->frame_half)
     {
         --(apu->pulse[ch].length_counter);
     }
@@ -344,7 +348,7 @@ static inline unsigned int update_triangle(nesapu_t *apu, unsigned int cycles)
     //
     // Clock linear counter @ quater frame
     // https://www.nesdev.org/wiki/APU_Triangle
-    if (apu->quarter_frame)
+    if (apu->frame_quarter)
     {
         // In order:
         // 1. If the linear counter reload flag is set, the linear counter is reloaded with the counter reload value,
@@ -366,7 +370,7 @@ static inline unsigned int update_triangle(nesapu_t *apu, unsigned int cycles)
     // 
     // Clock length counter @ half frame if not halted
     // https://www.nesdev.org/wiki/APU_Length_Counter
-    if (!apu->triangle_lnrctl_lenhalt && apu->triangle_length_counter && apu->half_frame)
+    if (!apu->triangle_lnrctl_lenhalt && apu->triangle_length_counter && apu->frame_half)
     {
         --(apu->triangle_length_counter);
     }
@@ -402,8 +406,8 @@ nesapu_t * nesapu_create(bool format, unsigned int clock, unsigned int srate, un
     // frame counter
     apu->sequencer_step = 0;
     apu->sequence_mode = false;
-    apu->quarter_frame = false;
-    apu->half_frame = false;
+    apu->frame_quarter = false;
+    apu->frame_half = false;
     apu->frame_accu_fp = 0;
     apu->frame_period_fp = float_to_q16((float)apu->clock_rate / 240.0f);  // 240Hz frame counter period
     //nesapu_reset(a);
@@ -584,10 +588,19 @@ void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)
     // Frame counter
     case 0x17:  // $4017:
         apu->sequence_mode = (val & 0x80);
-        // Writing to $4017 with bit 7 set ($80) will immediately clock all of its controlled units at the beginning of the 5-step sequence;
-        // with bit 7 clear, only the sequence is reset without clocking any of its units. 
         apu->sequencer_step = 0;
         apu->frame_accu_fp = 0;
+        // TODO: Needs test
+        // Writing to $4017 with bit 7 set ($80) will immediately clock all of its controlled units at the beginning of the 5-step sequence;
+        // with bit 7 clear, only the sequence is reset without clocking any of its units. 
+        if (apu->sequence_mode)
+        {
+            apu->frame_force_clock = true;
+        }
+        else
+        {
+            apu->frame_force_clock = false;
+        }
         break;
     }
 }

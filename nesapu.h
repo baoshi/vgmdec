@@ -20,8 +20,9 @@ typedef struct nesapu_s
     // frame counter
     uint8_t  sequencer_step;    // sequencer step, 1-2-3-4 or 1-2-3-4-5
     bool     sequence_mode;     // false: 4-step sequence. true: 5-step sequence. Set by $4017 bit 7
-    bool     quarter_frame;     // true @step 1,2,3,4 for 4-step sequence or @step 1,2,3,5 for 5-step sequence
-    bool     half_frame;        // true @step 2,4 for 4-step sequence or @step 2,5 for 5-step sequence
+    bool     frame_quarter;     // true @step 1,2,3,4 for 4-step sequence or @step 1,2,3,5 for 5-step sequence
+    bool     frame_half;        // true @step 2,4 for 4-step sequence or @step 2,5 for 5-step sequence
+    bool     frame_force_clock; // When writing 0x80 to $4017, immediate clock all units at first step
     q16_t    frame_accu_fp;     // frame counter accumulator (fixed point)
     q16_t    frame_period_fp;   // frame clock (240Hz) period (fixed point)
     // Pulse1 Channel
