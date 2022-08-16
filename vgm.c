@@ -3,7 +3,7 @@
 #include "nesapu.h"
 #include "vgm.h"
 
-// #define VGM_ENABLE_DUMP
+ //#define VGM_ENABLE_DUMP
 
 #ifdef VGM_ENABLE_DUMP
 # define VGM_DUMP(...) VGM_PRINTF(__VA_ARGS__)
@@ -416,8 +416,8 @@ static int vgm_exec(vgm_t *vgm)
                     break;
                 }
                 vgm->data_pos += 3;
-                nesapu_write_reg(vgm->apu, aa, dd);
                 VGM_DUMP("VGM: NES APU write reg[$%04X] = 0x%02X\n", aa + 0x4000, dd);
+                nesapu_write_reg(vgm->apu, aa, dd);
                 break;
             case 0xB5:  // aa dd : MultiPCM, write value dd to register aa
             case 0xB6:  // aa dd : uPD7759, write value dd to register aa

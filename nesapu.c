@@ -5,7 +5,7 @@
 
 //
 // Length Counter (Pulse1, Pulse2, Triangle, Noise)
-// http://wiki.nesdev.org/w/index.php/APU_Length_Counter
+// https://www.nesdev.org/wiki/APU_Length_Counter
 //
 static const unsigned int length_counter_table[32] = 
 {
@@ -14,6 +14,7 @@ static const unsigned int length_counter_table[32] =
 };
 
 
+// Pulse channel
 // Duty lookup table, see wiki "Implementation details"
 static const bool pulse_waveform_table[][8] = 
 {
@@ -23,6 +24,16 @@ static const bool pulse_waveform_table[][8] =
     { 1, 1, 1, 1, 1, 1, 0, 0 }  // 25% negated
 };
 
+
+//
+// Triangle wave table
+// https://www.nesdev.org/wiki/APU_Triangle
+//
+static const unsigned int triangle_waveform_table[32] = 
+{
+    15, 14, 13, 12, 11, 10,  9,  8,  7,  6,  5,  4,  3,  2,  1,  0,
+     0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15
+};
 
 
 //
@@ -76,23 +87,48 @@ static const q29_t mixer_tnd_table[203] =
 /**
  * @brief Count down timer
  * 
- * @param divider       Input initial divider value. When counting finish, return finish divider value
- * @param period        Counter period
- * @return unsigned int Number of times divider has reloaded from 0 to next period
+ * @param counter       Input initial counter value. When counting finish, return finish counter value.
+ * @param period        Counting period.
+ * @return unsigned int Number of times counter has reloaded from 0 to next period
  *
  */
-static inline unsigned int timer_count_down(unsigned int *divider, unsigned int period, unsigned int cycles)
+static inline unsigned int timer_count_down(unsigned int *counter, unsigned int period, unsigned int cycles)
 {
     unsigned int clocks = cycles / period;
     unsigned int extra = cycles % period;
-    if (extra > *divider)
+    if (extra > *counter)
     {
-        *divider = *divider + period - extra;
+        *counter = *counter + period - extra;
         ++clocks;
     }
     else
     {
-        *divider = *divider - extra;
+        *counter = *counter - extra;
+    }
+    return clocks;
+}
+
+
+/**
+ * @brief Count up timer
+ * 
+ * @param counter       Input initial counter value. When counting finish, return finish counter value
+ * @param period        Countering period
+ * @return unsigned int Number of times counter has reloaded from period to 0
+ *
+ */
+static inline unsigned int timer_count_up(unsigned int *counter, unsigned int period, unsigned int cycles)
+{
+    unsigned int clocks = cycles / period;
+    unsigned int extra = cycles % period;
+    if (*counter + extra >= period)
+    {
+        *counter = *counter + extra - period;
+        ++clocks;
+    }
+    else
+    {
+        *counter = *counter + extra;
     }
     return clocks;
 }
@@ -105,6 +141,8 @@ static inline void update_frame_counter(nesapu_t *apu, unsigned int cycles)
     //
     // Frame counter clocks 4 or 5 sequencer at 240Hz or 7457.38 CPU clocks.
     // Fixed point is used here to increase accuracy.
+    apu->quarter_frame = false;
+    apu->half_frame = false;
     q16_t cycles_fp = int_to_q16(cycles);
     apu->frame_accu_fp += cycles_fp;
     if (apu->frame_accu_fp >= apu->frame_period_fp)
@@ -196,24 +234,23 @@ static inline unsigned int update_pulse(nesapu_t *apu, int ch, unsigned int cycl
     //
     // Clock envelope @ quater frame
     // https://www.nesdev.org/wiki/APU_Envelope
-    //
     if (apu->quarter_frame)
     {
         if (apu->pulse[ch].envelope_start)
         {
             apu->pulse[ch].envelope_decay = 15;
-            apu->pulse[ch].envelope_divider = apu->pulse[ch].volume_evperiod;
+            apu->pulse[ch].envelope_counter = apu->pulse[ch].volume_evperiod;
             apu->pulse[ch].envelope_start = false;
         }
         else
         {
-            if (apu->pulse[ch].envelope_divider)
+            if (apu->pulse[ch].envelope_counter)
             {
-                --apu->pulse[ch].envelope_divider;
+                --apu->pulse[ch].envelope_counter;
             }
             else
             {
-                apu->pulse[ch].envelope_divider = apu->pulse[ch].volume_evperiod;
+                apu->pulse[ch].envelope_counter = apu->pulse[ch].volume_evperiod;
                 if (apu->pulse[ch].envelope_decay)
                 {
                     --apu->pulse[ch].envelope_decay;
@@ -273,24 +310,80 @@ static inline unsigned int update_pulse(nesapu_t *apu, int ch, unsigned int cycl
         }
     }
     //
-    // Clock main timer and update sequencer
+    // Clock pulse channel timer and update sequencer
     // https://www.nesdev.org/wiki/APU_Pulse
     // Timer counting downwards from 0 at every other CPU cycle. So we set timer limit to  2x (timer_period + 1).
-    unsigned int seq_clk = timer_count_down(&(apu->pulse[ch].timer_divider), (apu->pulse[ch].timer_period + 1) << 1, cycles);
+    unsigned int seq_clk = timer_count_down(&(apu->pulse[ch].timer_counter), (apu->pulse[ch].timer_period + 1) << 1, cycles);
     if (seq_clk) timer_count_down(&(apu->pulse[ch].sequencer_value), 8, seq_clk);
     // 
-    // clock length counter @ half frame if not halted
+    // Clock length counter @ half frame if not halted
     // https://www.nesdev.org/wiki/APU_Length_Counter
     if (!apu->pulse[ch].lchalt_evloop && apu->pulse[ch].length_counter && apu->half_frame)
     {
         --(apu->pulse[ch].length_counter);
     }
-    // Determine Pulse1 output
+    // Determine Pulse channel output
     if (!apu->pulse[ch].enabled) return 0;
     if (!apu->pulse[ch].length_counter) return 0;
     if (sweep_mute) return 0;
     if (!pulse_waveform_table[apu->pulse[ch].duty][apu->pulse[ch].sequencer_value]) return 0;
     return (apu->pulse[ch].constant_volume ? apu->pulse[ch].volume_evperiod : apu->pulse[ch].envelope_decay);
+}
+
+
+/*
+ * https://www.nesdev.org/wiki/APU_Triangle
+ *
+ *       Linear Counter    Length Counter
+ *              |                |
+ *              v                v
+ *  Timer ---> Gate ----------> Gate ---> Sequencer ---> (to mixer)
+ */
+static inline unsigned int update_triangle(nesapu_t *apu, unsigned int cycles)
+{
+    //
+    // Clock linear counter @ quater frame
+    // https://www.nesdev.org/wiki/APU_Triangle
+    if (apu->quarter_frame)
+    {
+        // In order:
+        // 1. If the linear counter reload flag is set, the linear counter is reloaded with the counter reload value,
+        //    otherwise if the linear counter is non-zero, it is decremented.
+        // 2. If the control flag is clear, the linear counter reload flag is cleared.
+        if (apu->triangle_linear_reload)
+        {
+            apu->triangle_linear_counter = apu->triangle_linear_period;
+        }
+        else if (apu->triangle_linear_counter)
+        {
+            --(apu->triangle_linear_counter);
+        }
+        if (!apu->triangle_lnrctl_lenhalt)
+        {
+            apu->triangle_linear_reload = false;
+        }
+    }
+    // 
+    // Clock length counter @ half frame if not halted
+    // https://www.nesdev.org/wiki/APU_Length_Counter
+    if (!apu->triangle_lnrctl_lenhalt && apu->triangle_length_counter && apu->half_frame)
+    {
+        --(apu->triangle_length_counter);
+    }
+    // Clock triangle channel timer and return
+    // Trick: Just keep sequencer unchanged if the channel should be silenced, it minizes pop
+    if (apu->triangle_enabled 
+        &&
+        !apu->triangle_timer_period_bad
+        &&
+        apu->triangle_length_counter
+        &&
+        apu->triangle_linear_counter)
+    {
+        unsigned int seq_clk = timer_count_down(&(apu->triangle_timer_counter), apu->triangle_timer_period + 1, cycles);
+        if (seq_clk) timer_count_up(&(apu->triangle_sequencer_value), 32, seq_clk);
+    }
+    return triangle_waveform_table[apu->triangle_sequencer_value];
 }
 
 
@@ -336,8 +429,8 @@ static inline int16_t nesapu_run_and_sample(nesapu_t *apu, unsigned int cycles)
 {
     update_frame_counter(apu, cycles);
     unsigned int p1 = update_pulse(apu, 0, cycles);
-    unsigned int p2 = update_pulse(apu, 1, cycles);;
-    unsigned int tr = 0;
+    unsigned int p2 = update_pulse(apu, 1, cycles);
+    unsigned int tr = update_triangle(apu, cycles);
     unsigned int ns = 0;
     unsigned int dm = 0;
     q29_t f = mixer_pulse_table[p1 + p2] + mixer_tnd_table[3 * tr + 2 * ns + dm];
@@ -423,18 +516,38 @@ void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)
         break;
     case 0x06:  // $4006: LLLL LLLL, Timer low (T)
         apu->pulse[1].timer_period &= 0xff00;
-        apu->pulse[1].timer_period |= val;                        // Pulse1 timer period low (TTTT TTTT)
+        apu->pulse[1].timer_period |= val;                          // Pulse2 timer period low (TTTT TTTT)
         apu->pulse[1].sweep_target = apu->pulse[1].timer_period;    // Whenever the current period changes, the target period also changes
         break;
     case 0x07:  // $4007: llll lHHH, Length counter load (L), timer high (T)
         apu->pulse[1].length_counter = length_counter_table[(val & 0xf8) >> 3];   // Length counter load (lllll) 
         apu->pulse[1].timer_period &= 0x00ff;
-        apu->pulse[1].timer_period |= ((unsigned int)(val & 0x07)) << 8;          // Pulse1 timer period high 3 bits (TTT)
+        apu->pulse[1].timer_period |= ((unsigned int)(val & 0x07)) << 8;          // Pulse2 timer period high 3 bits (TTT)
         apu->pulse[1].sweep_target = apu->pulse[1].timer_period;    // Whenever the current period changes, the target period also changes  
         // Side effects : The sequencer is immediately restarted at the first value of the current sequence. 
         // The envelope is also restarted. The period divider is not reset.
         apu->pulse[1].envelope_start = true;
         apu->pulse[1].sequencer_value = 0;
+        break;
+    // Triangle
+    case 0x08:  // $4008: CRRR RRRR, Linear counter setup
+        apu->triangle_lnrctl_lenhalt = (val & 0x80);    // Control flag / length counter halt
+        apu->triangle_linear_period = (val & 0x7f);     // Linear counter reload value 
+        break;
+    case 0x09:  // Not used
+        break;
+    case 0x0a:  // $400A: LLLL LLLL, Timer low (write) 
+        apu->triangle_timer_period &= 0xff00;
+        apu->triangle_timer_period |= val;  // Timer low (LLLL LLLL)
+        apu->triangle_timer_period_bad = ((apu->triangle_timer_period >= 0x7fe) || (apu->triangle_timer_period <= 1));
+        break;
+    case 0x0b:  // $400B: llll lHHH, Length counter load and timer high
+        apu->triangle_timer_period &= 0x00ff;
+        apu->triangle_timer_period |= ((unsigned int)(val & 0x07)) << 8;        // Timer period high (HHH)
+        apu->triangle_timer_period_bad = ((apu->triangle_timer_period >= 0x7fe) || (apu->triangle_timer_period <= 1));
+        apu->triangle_length_counter = length_counter_table[(val & 0xf8) >> 3]; // Length counter load (lllll)
+        apu->triangle_linear_reload = true;  // site effect: sets the linear counter reload flag 
+        //apu->triangle_timer_counter = apu->triangle_timer_period;
         break;
     // Status
     case 0x15:  // $4015: ---D NT21, Enable DMC (D), noise (N), triangle (T), and pulse channels (2/1)
@@ -445,7 +558,7 @@ void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)
         else
         {
             // Writing a zero to any of the channel enable bits will silence that channel and immediately set its length counter to 0.
-            apu->pulse[0].enabled = true;
+            apu->pulse[0].enabled = false;
             apu->pulse[0].length_counter = 0;
         }
         if (val & 0x02)
@@ -455,8 +568,17 @@ void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)
         else
         {
             // Writing a zero to any of the channel enable bits will silence that channel and immediately set its length counter to 0.
-            apu->pulse[1].enabled = true;
+            apu->pulse[1].enabled = false;
             apu->pulse[1].length_counter = 0;
+        }
+        if (val & 0x04)
+        {
+            apu->triangle_enabled = true;
+        }
+        else
+        {
+            apu->triangle_enabled = false;
+            apu->triangle_length_counter = 0;
         }
         break;
     // Frame counter
