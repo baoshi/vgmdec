@@ -179,206 +179,118 @@ static inline void update_frame_counter(nesapu_t *apu, unsigned int cycles)
 
 
 /*
+ * https://www.nesdev.org/wiki/APU_Pulse
  *
-                   Sweep -----> Timer
-                     |            |
-                     |            |
-                     |            v
-                     |        Sequencer   Length Counter
-                     |            |             |
-                     |            |             |
-                     v            v             v
-  Envelope -------> Gate -----> Gate -------> Gate ---> (to mixer)
+ *                  Sweep -----> Timer
+ *                    |            |
+ *                    |            |
+ *                    |            v
+ *                    |        Sequencer   Length Counter
+ *                    |            |             |
+ *                    |            |             |
+ *                    v            v             v
+ * Envelope -------> Gate -----> Gate -------> Gate ---> (to mixer)
  */
-static inline unsigned int update_pulse1(nesapu_t *apu, unsigned int cycles)
+static inline unsigned int update_pulse(nesapu_t *apu, int ch, unsigned int cycles)
 {
     //
     // Clock envelope @ quater frame
+    // https://www.nesdev.org/wiki/APU_Envelope
+    //
     if (apu->quarter_frame)
     {
-        if (apu->pulse1_envelope_start)
+        if (apu->pulse[ch].envelope_start)
         {
-            apu->pulse1_envelope_decay = 15;
-            apu->pulse1_envelope_divider = apu->pulse1_volume_evperiod;
-            apu->pulse1_envelope_start = false;
+            apu->pulse[ch].envelope_decay = 15;
+            apu->pulse[ch].envelope_divider = apu->pulse[ch].volume_evperiod;
+            apu->pulse[ch].envelope_start = false;
         }
         else
         {
-            if (apu->pulse1_envelope_divider)
+            if (apu->pulse[ch].envelope_divider)
             {
-                --apu->pulse1_envelope_divider;
+                --apu->pulse[ch].envelope_divider;
             }
             else
             {
-                apu->pulse1_envelope_divider = apu->pulse1_volume_evperiod;
-                if (apu->pulse1_envelope_decay)
+                apu->pulse[ch].envelope_divider = apu->pulse[ch].volume_evperiod;
+                if (apu->pulse[ch].envelope_decay)
                 {
-                    --apu->pulse1_envelope_decay;
+                    --apu->pulse[ch].envelope_decay;
                 }
-                else if (apu->pulse1_lchalt_evloop)
+                else if (apu->pulse[ch].lchalt_evloop)
                 {
-                    apu->pulse1_envelope_decay = 15;
+                    apu->pulse[ch].envelope_decay = 15;
                 }
             }
         }
     }
     //
     // Clock sweep unit @ half frame 
+    // https://www.nesdev.org/wiki/APU_Sweep
+    //
     // Two conditions cause the sweep unit to mute the channel:
     // 1. If the current period is less than 8, the sweep unit mutes the channel.
     // 2. If at any time the target period is greater than $7FF, the sweep unit mutes the channel.
-    bool sweep_mute = ((apu->pulse1_timer_period < 8) || (apu->pulse1_sweep_target > 0x7ff));
+    bool sweep_mute = ((apu->pulse[ch].timer_period < 8) || (apu->pulse[ch].sweep_target > 0x7ff));
     if (apu->half_frame)
     {
         // 1. If the divider's counter is zero, the sweep is enabled, and the sweep unit is not muting the channel: The pulse's period is set to the target period.
         // 2. If the divider's counter is zero or the reload flag is true: The divider counter is set to P and the reload flag is cleared.
         //    Otherwise, the divider counter is decremented.
-        if (apu->pulse1_sweep_reload)
+        if (apu->pulse[ch].sweep_reload)
         {
-            apu->pulse1_sweep_divider = apu->pulse1_sweep_period;
-            apu->pulse1_sweep_reload = false;
+            apu->pulse[ch].sweep_divider = apu->pulse[ch].sweep_period;
+            apu->pulse[ch].sweep_reload = false;
         }
         else 
         {
-            if (apu->pulse1_sweep_divider)
+            if (apu->pulse[ch].sweep_divider)
             {
-                --apu->pulse1_sweep_divider;
+                --apu->pulse[ch].sweep_divider;
             } 
-            else if (apu->pulse1_sweep_enabled && apu->pulse1_sweep_shift)  // TODO: Not sure if pulse1_sweep_enabled must be true
+            else if (apu->pulse[ch].sweep_enabled && apu->pulse[ch].sweep_shift)  // TODO: Not sure if pulse1_sweep_enabled must be true
             {
                 // Calculate target period.
-                unsigned int c = apu->pulse1_timer_period >> apu->pulse1_sweep_shift;
-                if (apu->pulse1_sweep_negate)
+                unsigned int c = apu->pulse[ch].timer_period >> apu->pulse[ch].sweep_shift;
+                if (apu->pulse[ch].sweep_negate)
                 {
-                    apu->pulse1_sweep_target -= c + 1;
+                    if (ch == 0) apu->pulse[ch].sweep_target -= c + 1;
+                    else if (ch == 1) apu->pulse[ch].sweep_target -= c;
                 }
                 else
                 {
-                    apu->pulse1_sweep_target += c;
+                    apu->pulse[ch].sweep_target += c;
                 }
                 if (!sweep_mute)
                 {
                     // When the sweep unit is muting a pulse channel, the channel's current period remains unchanged.
-                    apu->pulse1_timer_period = apu->pulse1_sweep_shift;   
+                    apu->pulse[ch].timer_period = apu->pulse[ch].sweep_shift;   
                 }
                 // Reload divider
-                apu->pulse1_sweep_divider = apu->pulse1_sweep_period;
+                apu->pulse[ch].sweep_divider = apu->pulse[ch].sweep_period;
             }
         }
     }
     //
     // Clock main timer and update sequencer
+    // https://www.nesdev.org/wiki/APU_Pulse
     // Timer counting downwards from 0 at every other CPU cycle. So we set timer limit to  2x (timer_period + 1).
-    unsigned int seq_clk = timer_count_down(&(apu->pulse1_timer_divider), (apu->pulse1_timer_period + 1) << 1, cycles);
-    if (seq_clk) timer_count_down(&(apu->pulse1_sequencer_value), 8, seq_clk);
+    unsigned int seq_clk = timer_count_down(&(apu->pulse[ch].timer_divider), (apu->pulse[ch].timer_period + 1) << 1, cycles);
+    if (seq_clk) timer_count_down(&(apu->pulse[ch].sequencer_value), 8, seq_clk);
     // 
     // clock length counter @ half frame if not halted
-    if (!apu->pulse1_lchalt_evloop && apu->pulse1_length_counter && apu->half_frame)
+    // https://www.nesdev.org/wiki/APU_Length_Counter
+    if (!apu->pulse[ch].lchalt_evloop && apu->pulse[ch].length_counter && apu->half_frame)
     {
-        --(apu->pulse1_length_counter);
+        --(apu->pulse[ch].length_counter);
     }
     // Determine Pulse1 output
-    if (!apu->pulse1_enabled) return 0;
-    if (!apu->pulse1_length_counter) return 0;
+    if (!apu->pulse[ch].enabled) return 0;
+    if (!apu->pulse[ch].length_counter) return 0;
     if (sweep_mute) return 0;
-    if (!pulse_waveform_table[apu->pulse1_duty][apu->pulse1_sequencer_value]) return 0;
-    return (apu->pulse1_constant_volume ? apu->pulse1_volume_evperiod : apu->pulse1_envelope_decay);
-}
-
-
-static inline unsigned int update_pulse2(nesapu_t* apu, unsigned int cycles)
-{
-    //
-    // Clock envelope @ quater frame
-    if (apu->quarter_frame)
-    {
-        if (apu->pulse2_envelope_start)
-        {
-            apu->pulse2_envelope_decay = 15;
-            apu->pulse2_envelope_divider = apu->pulse2_volume_evperiod;
-            apu->pulse2_envelope_start = false;
-        }
-        else
-        {
-            if (apu->pulse2_envelope_divider)
-            {
-                --apu->pulse2_envelope_divider;
-            }
-            else
-            {
-                apu->pulse2_envelope_divider = apu->pulse2_volume_evperiod;
-                if (apu->pulse2_envelope_decay)
-                {
-                    --apu->pulse2_envelope_decay;
-                }
-                else if (apu->pulse2_lchalt_evloop)
-                {
-                    apu->pulse2_envelope_decay = 15;
-                }
-            }
-        }
-    }
-    //
-    // Clock sweep unit @ half frame 
-    // Two conditions cause the sweep unit to mute the channel:
-    // 1. If the current period is less than 8, the sweep unit mutes the channel.
-    // 2. If at any time the target period is greater than $7FF, the sweep unit mutes the channel.
-    bool sweep_mute = ((apu->pulse2_timer_period < 8) || (apu->pulse2_sweep_target > 0x7ff));
-    if (apu->half_frame)
-    {
-        // 1. If the divider's counter is zero, the sweep is enabled, and the sweep unit is not muting the channel: The pulse's period is set to the target period.
-        // 2. If the divider's counter is zero or the reload flag is true: The divider counter is set to P and the reload flag is cleared.
-        //    Otherwise, the divider counter is decremented.
-        if (apu->pulse2_sweep_reload)
-        {
-            apu->pulse2_sweep_divider = apu->pulse2_sweep_period;
-            apu->pulse2_sweep_reload = false;
-        }
-        else
-        {
-            if (apu->pulse2_sweep_divider)
-            {
-                --apu->pulse2_sweep_divider;
-            }
-            else if (apu->pulse2_sweep_enabled && apu->pulse2_sweep_shift)  // TODO: Not sure if pulse2_sweep_enabled must be true
-            {
-                // Calculate target period.
-                unsigned int c = apu->pulse2_timer_period >> apu->pulse2_sweep_shift;
-                if (apu->pulse2_sweep_negate)
-                {
-                    apu->pulse2_sweep_target -= c;
-                }
-                else
-                {
-                    apu->pulse2_sweep_target += c;
-                }
-                if (!sweep_mute)
-                {
-                    // When the sweep unit is muting a pulse channel, the channel's current period remains unchanged.
-                    apu->pulse2_timer_period = apu->pulse2_sweep_shift;
-                }
-                // Reload divider
-                apu->pulse2_sweep_divider = apu->pulse2_sweep_period;
-            }
-        }
-    }
-    //
-    // Clock main timer and update sequencer
-    // Timer counting downwards from 0 at every other CPU cycle. So we set timer limit to  2x (timer_period + 1).
-    unsigned int seq_clk = timer_count_down(&(apu->pulse2_timer_divider), (apu->pulse2_timer_period + 1) << 1, cycles);
-    if (seq_clk) timer_count_down(&(apu->pulse2_sequencer_value), 8, seq_clk);
-    // 
-    // clock length counter @ half frame if not halted
-    if (!apu->pulse2_lchalt_evloop && apu->pulse2_length_counter && apu->half_frame)
-    {
-        --(apu->pulse2_length_counter);
-    }
-    // Determine Pulse1 output
-    if (!apu->pulse2_enabled) return 0;
-    if (!apu->pulse2_length_counter) return 0;
-    if (sweep_mute) return 0;
-    if (!pulse_waveform_table[apu->pulse2_duty][apu->pulse2_sequencer_value]) return 0;
-    return (apu->pulse2_constant_volume ? apu->pulse2_volume_evperiod : apu->pulse2_envelope_decay);
+    if (!pulse_waveform_table[apu->pulse[ch].duty][apu->pulse[ch].sequencer_value]) return 0;
+    return (apu->pulse[ch].constant_volume ? apu->pulse[ch].volume_evperiod : apu->pulse[ch].envelope_decay);
 }
 
 
@@ -423,8 +335,8 @@ void nesapu_destroy(nesapu_t *apu)
 static inline int16_t nesapu_run_and_sample(nesapu_t *apu, unsigned int cycles)
 {
     update_frame_counter(apu, cycles);
-    unsigned int p1 = update_pulse1(apu, cycles);
-    unsigned int p2 = update_pulse2(apu, cycles);;
+    unsigned int p1 = update_pulse(apu, 0, cycles);
+    unsigned int p2 = update_pulse(apu, 1, cycles);;
     unsigned int tr = 0;
     unsigned int ns = 0;
     unsigned int dm = 0;
@@ -468,83 +380,83 @@ void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)
     {
     // Pulse1 regs
     case 0x00:  // $4000: DDLC VVVV, Duty (D), envelope loop / length counter halt (L), constant volume (C), volume/envelope (V)
-        apu->pulse1_duty = (val & 0xc0) >> 6;               // Duty (DD), index to tbl_pulse_waveform
-        apu->pulse1_lchalt_evloop = (val & 0x20);           // Length counter halt or Envelope loop (L)
-        apu->pulse1_constant_volume = (val & 0x10);         // Constant volume (true) or Envelope enable (false) (C)
-        apu->pulse1_volume_evperiod = (val & 0xf);          // Volume or period of envelope (VVVV)
+        apu->pulse[0].duty = (val & 0xc0) >> 6;         // Duty (DD), index to tbl_pulse_waveform
+        apu->pulse[0].lchalt_evloop = (val & 0x20);     // Length counter halt or Envelope loop (L)
+        apu->pulse[0].constant_volume = (val & 0x10);   // Constant volume (true) or Envelope enable (false) (C)
+        apu->pulse[0].volume_evperiod = (val & 0xf);    // Volume or period of envelope (VVVV)
         break;
     case 0x01:  // $4001: EPPP NSSS, Sweep unit: enabled (E), period (P), negate (N), shift (S)
-        apu->pulse1_sweep_enabled = (val & 0x80);           // Sweep enable (E)
-        apu->pulse1_sweep_period = (val & 0x70) >> 4;       // Sweep period (PPP)
-        apu->pulse1_sweep_negate = (val & 0x08);            // Sweep negate (N)
-        apu->pulse1_sweep_shift = val & 0x07;               // Sweep shift (SSS)
-        apu->pulse1_sweep_reload = true;                    // Side effects : Sets reload flag 
+        apu->pulse[0].sweep_enabled = (val & 0x80);     // Sweep enable (E)
+        apu->pulse[0].sweep_period = (val & 0x70) >> 4; // Sweep period (PPP)
+        apu->pulse[0].sweep_negate = (val & 0x08);      // Sweep negate (N)
+        apu->pulse[0].sweep_shift = val & 0x07;         // Sweep shift (SSS)
+        apu->pulse[0].sweep_reload = true;              // Side effects : Sets reload flag 
         break;
     case 0x02:  // $4002: LLLL LLLL, Timer low (T)
-        apu->pulse1_timer_period &= 0xff00;
-        apu->pulse1_timer_period |= val;                        // Pulse1 timer period low (TTTT TTTT)
-        apu->pulse1_sweep_target = apu->pulse1_timer_period;    // Whenever the current period changes, the target period also changes
+        apu->pulse[0].timer_period &= 0xff00;
+        apu->pulse[0].timer_period |= val;                          // Pulse1 timer period low (TTTT TTTT)
+        apu->pulse[0].sweep_target = apu->pulse[0].timer_period;    // Whenever the current period changes, the target period also changes
         break;
     case 0x03:  // $4003: llll lHHH, Length counter load (L), timer high (T)
-        apu->pulse1_length_counter = length_counter_table[(val & 0xf8) >> 3];   // Length counter load (lllll) 
-        apu->pulse1_timer_period &= 0x00ff;
-        apu->pulse1_timer_period |= ((unsigned int)(val & 0x07)) << 8;          // Pulse1 timer period high 3 bits (TTT)
-        apu->pulse1_sweep_target = apu->pulse1_timer_period;    // Whenever the current period changes, the target period also changes  
+        apu->pulse[0].length_counter = length_counter_table[(val & 0xf8) >> 3]; // Length counter load (lllll) 
+        apu->pulse[0].timer_period &= 0x00ff;
+        apu->pulse[0].timer_period |= ((unsigned int)(val & 0x07)) << 8;        // Pulse1 timer period high 3 bits (TTT)
+        apu->pulse[0].sweep_target = apu->pulse[0].timer_period;    // Whenever the current period changes, the target period also changes  
         // Side effects : The sequencer is immediately restarted at the first value of the current sequence. 
         // The envelope is also restarted. The period divider is not reset.
-        apu->pulse1_envelope_start = true;
-        apu->pulse1_sequencer_value = 0;
+        apu->pulse[0].envelope_start = true;
+        apu->pulse[0].sequencer_value = 0;
         break;
     // Pulse2
     case 0x04:  // $4004: DDLC VVVV, Duty (D), envelope loop / length counter halt (L), constant volume (C), volume/envelope (V)
-        apu->pulse2_duty = (val & 0xc0) >> 6;               // Duty (DD), index to tbl_pulse_waveform
-        apu->pulse2_lchalt_evloop = (val & 0x20);           // Length counter halt or Envelope loop (L)
-        apu->pulse2_constant_volume = (val & 0x10);         // Constant volume (true) or Envelope enable (false) (C)
-        apu->pulse2_volume_evperiod = (val & 0xf);          // Volume or period of envelope (VVVV)
+        apu->pulse[1].duty = (val & 0xc0) >> 6;               // Duty (DD), index to tbl_pulse_waveform
+        apu->pulse[1].lchalt_evloop = (val & 0x20);           // Length counter halt or Envelope loop (L)
+        apu->pulse[1].constant_volume = (val & 0x10);         // Constant volume (true) or Envelope enable (false) (C)
+        apu->pulse[1].volume_evperiod = (val & 0xf);          // Volume or period of envelope (VVVV)
         break;
     case 0x05:  // $4005: EPPP NSSS, Sweep unit: enabled (E), period (P), negate (N), shift (S)
-        apu->pulse2_sweep_enabled = (val & 0x80);           // Sweep enable (E)
-        apu->pulse2_sweep_period = (val & 0x70) >> 4;       // Sweep period (PPP)
-        apu->pulse2_sweep_negate = (val & 0x08);            // Sweep negate (N)
-        apu->pulse2_sweep_shift = val & 0x07;               // Sweep shift (SSS)
-        apu->pulse2_sweep_reload = true;                    // Side effects : Sets reload flag 
+        apu->pulse[1].sweep_enabled = (val & 0x80);           // Sweep enable (E)
+        apu->pulse[1].sweep_period = (val & 0x70) >> 4;       // Sweep period (PPP)
+        apu->pulse[1].sweep_negate = (val & 0x08);            // Sweep negate (N)
+        apu->pulse[1].sweep_shift = val & 0x07;               // Sweep shift (SSS)
+        apu->pulse[1].sweep_reload = true;                    // Side effects : Sets reload flag 
         break;
     case 0x06:  // $4006: LLLL LLLL, Timer low (T)
-        apu->pulse2_timer_period &= 0xff00;
-        apu->pulse2_timer_period |= val;                        // Pulse1 timer period low (TTTT TTTT)
-        apu->pulse2_sweep_target = apu->pulse2_timer_period;    // Whenever the current period changes, the target period also changes
+        apu->pulse[1].timer_period &= 0xff00;
+        apu->pulse[1].timer_period |= val;                        // Pulse1 timer period low (TTTT TTTT)
+        apu->pulse[1].sweep_target = apu->pulse[1].timer_period;    // Whenever the current period changes, the target period also changes
         break;
     case 0x07:  // $4007: llll lHHH, Length counter load (L), timer high (T)
-        apu->pulse2_length_counter = length_counter_table[(val & 0xf8) >> 3];   // Length counter load (lllll) 
-        apu->pulse2_timer_period &= 0x00ff;
-        apu->pulse2_timer_period |= ((unsigned int)(val & 0x07)) << 8;          // Pulse1 timer period high 3 bits (TTT)
-        apu->pulse2_sweep_target = apu->pulse1_timer_period;    // Whenever the current period changes, the target period also changes  
+        apu->pulse[1].length_counter = length_counter_table[(val & 0xf8) >> 3];   // Length counter load (lllll) 
+        apu->pulse[1].timer_period &= 0x00ff;
+        apu->pulse[1].timer_period |= ((unsigned int)(val & 0x07)) << 8;          // Pulse1 timer period high 3 bits (TTT)
+        apu->pulse[1].sweep_target = apu->pulse[1].timer_period;    // Whenever the current period changes, the target period also changes  
         // Side effects : The sequencer is immediately restarted at the first value of the current sequence. 
         // The envelope is also restarted. The period divider is not reset.
-        apu->pulse1_envelope_start = true;
-        apu->pulse1_sequencer_value = 0;
+        apu->pulse[1].envelope_start = true;
+        apu->pulse[1].sequencer_value = 0;
         break;
     // Status
     case 0x15:  // $4015: ---D NT21, Enable DMC (D), noise (N), triangle (T), and pulse channels (2/1)
         if (val & 0x01)
         {
-            apu->pulse1_enabled = true;
+            apu->pulse[0].enabled = true;
         }
         else
         {
             // Writing a zero to any of the channel enable bits will silence that channel and immediately set its length counter to 0.
-            apu->pulse1_enabled = true;
-            apu->pulse1_length_counter = 0;
+            apu->pulse[0].enabled = true;
+            apu->pulse[0].length_counter = 0;
         }
         if (val & 0x02)
         {
-            apu->pulse2_enabled = true;
+            apu->pulse[1].enabled = true;
         }
         else
         {
             // Writing a zero to any of the channel enable bits will silence that channel and immediately set its length counter to 0.
-            apu->pulse2_enabled = true;
-            apu->pulse2_length_counter = 0;
+            apu->pulse[1].enabled = true;
+            apu->pulse[1].length_counter = 0;
         }
         break;
     // Frame counter
