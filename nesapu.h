@@ -30,35 +30,46 @@ typedef struct nesapu_s
     {
         bool          enabled;
         unsigned int  duty;             // duty cycle, 0,1,2,3 -> 12.5%,25%,50%,-25%, see pulse_waveform_table
-        unsigned int  length_counter;   // Length counter value
-        bool          lchalt_evloop;    // Length counter halt or Envelope loop
+        unsigned int  length_value;     // Length counter value
+        bool          lenhalt_envloop;  // Length counter halt or Envelope loop
         bool          constant_volume;  // Constant volume (true) or Envelope enable (false)
         bool          envelope_start;   // Envelope start flag
         unsigned int  envelope_decay;   // Envelope decay value (15, 14, ...)
-        unsigned int  envelope_counter; // Envelope clock divider (counter value)
+        unsigned int  envelope_value;   // Envelope clock divider (counter value)
         unsigned int  volume_evperiod;  // Volume or Envelope period
         bool          sweep_enabled;    // Sweep enabled
         unsigned int  sweep_period;     // Sweep period
-        unsigned int  sweep_divider;    // Sweep divider value
+        unsigned int  sweep_value;      // Sweep divider value
         bool          sweep_negate;     // Sweep negate flag
         unsigned int  sweep_shift;      // Sweep shift
         unsigned int  sweep_target;     // Sweep target
-        bool          sweep_reload;     // To reload sweep_divider
+        bool          sweep_reload;     // To reload sweep_value
         unsigned int  timer_period;     // Pulse1 channel main timer period
-        unsigned int  timer_counter;    // Pulse1 channel main timer divider (counter value), counting from 2x timer_period
+        unsigned int  timer_value;      // Pulse1 channel main timer divider (counter value), counting from 2x timer_period
         unsigned int  sequencer_value;  // Current suquence (8 steps of waveform)
+        bool          sweep_timer_mute; // If sweep or timer will mute the channel
     } pulse[2];
     // Triangle Channel
     bool          triangle_enabled;
-    unsigned int  triangle_length_counter;
+    unsigned int  triangle_length_value;        // Length counter value
     bool          triangle_lnrctl_lenhalt;      // Linear counter control / length counter halt
     unsigned int  triangle_linear_period;       // Linear counter period
-    unsigned int  triangle_linear_counter;      // Linear counter value
+    unsigned int  triangle_linear_value;        // Linear counter value
     bool          triangle_linear_reload;       // Linear counter reload flag
-    unsigned int  triangle_timer_period;
-    bool          triangle_timer_period_bad;
-    unsigned int  triangle_timer_counter;
+    unsigned int  triangle_timer_period;        // Channel timer period
+    bool          triangle_timer_period_bad;    // If timer period is out of range
+    unsigned int  triangle_timer_value;         // Channel timer value
     unsigned int  triangle_sequencer_value;     // Current suquence (32 steps of waveform)
+    // Noise Channel
+    bool          noise_enabled;
+    bool          noise_envelope_start;         // Envelope start flag
+    unsigned int  noise_envelope_decay;         // Envelope decay value (15, 14, ...)
+    unsigned int  noise_envelope_value;         // Envelope clock divider (counter value)
+    unsigned int  noise_length_value;           // Length counter value
+    bool          noise_length_halt;            // Length counter halt
+    unsigned int  noise_timer_period;           // Channel timer period
+    unsigned int  noise_timer_value;            // Channel timer value
+    unsigned int  noise_shift_reg;              // Noise shift reg
 
 } nesapu_t;
 
