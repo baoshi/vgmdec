@@ -20,8 +20,8 @@ typedef struct nesapu_s
     // frame counter
     uint8_t  sequencer_step;    // sequencer step, 1-2-3-4 or 1-2-3-4-5
     bool     sequence_mode;     // false: 4-step sequence. true: 5-step sequence. Set by $4017 bit 7
-    bool     frame_quarter;     // true @step 1,2,3,4 for 4-step sequence or @step 1,2,3,5 for 5-step sequence
-    bool     frame_half;        // true @step 2,4 for 4-step sequence or @step 2,5 for 5-step sequence
+    bool     quarter_frame;     // true @step 1,2,3,4 for 4-step sequence or @step 1,2,3,5 for 5-step sequence
+    bool     half_frame;        // true @step 2,4 for 4-step sequence or @step 2,5 for 5-step sequence
     bool     frame_force_clock; // When writing 0x80 to $4017, immediate clock all units at first step
     q16_t    frame_accu_fp;     // frame counter accumulator (fixed point)
     q16_t    frame_period_fp;   // frame clock (240Hz) period (fixed point)
@@ -36,7 +36,7 @@ typedef struct nesapu_s
         bool          envelope_start;   // Envelope start flag
         unsigned int  envelope_decay;   // Envelope decay value (15, 14, ...)
         unsigned int  envelope_value;   // Envelope clock divider (counter value)
-        unsigned int  volume_evperiod;  // Volume or Envelope period
+        unsigned int  volume_envperiod; // Volume or Envelope period
         bool          sweep_enabled;    // Sweep enabled
         unsigned int  sweep_period;     // Sweep period
         unsigned int  sweep_value;      // Sweep divider value
@@ -62,20 +62,23 @@ typedef struct nesapu_s
     unsigned int  triangle_sequencer_value;     // Current suquence (32 steps of waveform)
     // Noise Channel
     bool          noise_enabled;
+    bool          noise_lenhalt_envloop;        // Length counter halt
+    bool          noise_constant_volume;        // Constant volume
+    unsigned int  noise_volume_envperiod;       // Volume / Envelope period
+    bool          noise_mode;                   // Noise mode / flag
     bool          noise_envelope_start;         // Envelope start flag
     unsigned int  noise_envelope_decay;         // Envelope decay value (15, 14, ...)
     unsigned int  noise_envelope_value;         // Envelope clock divider (counter value)
     unsigned int  noise_length_value;           // Length counter value
-    bool          noise_length_halt;            // Length counter halt
     unsigned int  noise_timer_period;           // Channel timer period
     unsigned int  noise_timer_value;            // Channel timer value
-    unsigned int  noise_shift_reg;              // Noise shift reg
-
+    uint16_t      noise_shift_reg;              // Noise shift register
 } nesapu_t;
 
 
 nesapu_t * nesapu_create(bool format, unsigned int clock, unsigned int srate, unsigned int max_sample_count);
 void nesapu_destroy(nesapu_t *a);
+void nesapu_reset(nesapu_t *a);
 void nesapu_write_reg(nesapu_t *a, uint16_t reg, uint8_t val);
 void nesapu_get_samples(nesapu_t *apu, int16_t *buf, unsigned int samples);
 

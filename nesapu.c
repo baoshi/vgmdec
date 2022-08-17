@@ -83,6 +83,20 @@ static const q29_t mixer_tnd_table[203] =
 };
 
 
+//
+// Noise channel
+// https://www.nesdev.org/wiki/APU_Noise
+static const uint16_t noise_timer_period_ntsc[16] =
+{
+    4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068
+};
+
+static const uint16_t noise_timer_period_pal[16] =
+{
+    4, 8, 14, 30, 60, 88, 118, 148, 188, 236, 354, 472, 708,  944, 1890, 3778
+};
+
+
 
 /**
  * @brief Count down timer
@@ -143,14 +157,14 @@ static inline void update_frame_counter(nesapu_t *apu, unsigned int cycles)
     // Fixed point is used here to increase accuracy.
     if (apu->frame_force_clock)
     {
-        apu->frame_quarter = true;
-        apu->frame_half = true;
+        apu->quarter_frame = true;
+        apu->half_frame = true;
         apu->frame_force_clock = false;
     }
     else
     {
-        apu->frame_quarter = false;
-        apu->frame_half = false;
+        apu->quarter_frame = false;
+        apu->half_frame = false;
     }
     q16_t cycles_fp = int_to_q16(cycles);
     apu->frame_accu_fp += cycles_fp;
@@ -161,7 +175,7 @@ static inline void update_frame_counter(nesapu_t *apu, unsigned int cycles)
         if (apu->sequence_mode)
         {
             // 5 step mode
-            // step      frame_quarter         frame_half
+            // step      quarter_frame         half_frame
             //  1          clock                  -
             //  2          clock                clock
             //  3          clock                  -
@@ -170,21 +184,21 @@ static inline void update_frame_counter(nesapu_t *apu, unsigned int cycles)
             switch (apu->sequencer_step)
             {
             case 1:
-                apu->frame_quarter = true;
+                apu->quarter_frame = true;
                 break;
             case 2:
-                apu->frame_quarter = true;
-                apu->frame_half = true;
+                apu->quarter_frame = true;
+                apu->half_frame = true;
                 break;
             case 3:
-                apu->frame_quarter = true;
+                apu->quarter_frame = true;
                 break;
             case 4:
-                apu->frame_quarter = false;
+                apu->quarter_frame = false;
                 break;
             case 5:
-                apu->frame_quarter = true;
-                apu->frame_half = true;
+                apu->quarter_frame = true;
+                apu->half_frame = true;
                 apu->sequencer_step = 0;
                 break;
             }
@@ -192,7 +206,7 @@ static inline void update_frame_counter(nesapu_t *apu, unsigned int cycles)
         else
         {
             // 4 step mode
-            // step      quarter_frame         frame_half
+            // step      quarter_frame         half_frame
             //  1          clock                  -
             //  2          clock                clock
             //  3          clock                  -
@@ -200,18 +214,18 @@ static inline void update_frame_counter(nesapu_t *apu, unsigned int cycles)
             switch (apu->sequencer_step)
             {
             case 1:
-                apu->frame_quarter = true;
+                apu->quarter_frame = true;
                 break;
             case 2:
-                apu->frame_quarter = true;
-                apu->frame_half = true;
+                apu->quarter_frame = true;
+                apu->half_frame = true;
                 break;
             case 3:
-                apu->frame_quarter = true;
+                apu->quarter_frame = true;
                 break;
             case 4:
-                apu->frame_quarter = true;
-                apu->frame_half = true;
+                apu->quarter_frame = true;
+                apu->half_frame = true;
                 apu->sequencer_step = 0;
                 break;
             }
@@ -238,26 +252,26 @@ static inline unsigned int update_pulse(nesapu_t *apu, int ch, unsigned int cycl
     //
     // Clock envelope @ quater frame
     // https://www.nesdev.org/wiki/APU_Envelope
-    if (apu->frame_quarter)
+    if (apu->quarter_frame)
     {
         if (apu->pulse[ch].envelope_start)
         {
             apu->pulse[ch].envelope_decay = 15;
-            apu->pulse[ch].envelope_value = apu->pulse[ch].volume_evperiod;
+            apu->pulse[ch].envelope_value = apu->pulse[ch].volume_envperiod;
             apu->pulse[ch].envelope_start = false;
         }
         else
         {
             if (apu->pulse[ch].envelope_value)
             {
-                --apu->pulse[ch].envelope_value;
+                --(apu->pulse[ch].envelope_value);
             }
             else
             {
-                apu->pulse[ch].envelope_value = apu->pulse[ch].volume_evperiod;
+                apu->pulse[ch].envelope_value = apu->pulse[ch].volume_envperiod;
                 if (apu->pulse[ch].envelope_decay)
                 {
-                    --apu->pulse[ch].envelope_decay;
+                    --(apu->pulse[ch].envelope_decay);
                 }
                 else if (apu->pulse[ch].lenhalt_envloop)
                 {
@@ -270,7 +284,7 @@ static inline unsigned int update_pulse(nesapu_t *apu, int ch, unsigned int cycl
     // Clock sweep unit @ half frame 
     // https://www.nesdev.org/wiki/APU_Sweep
     //
-    if (apu->frame_half)
+    if (apu->half_frame)
     {
         // 1. If the divider's counter is zero, the sweep is enabled, and the sweep unit is not muting the channel: The pulse's period is set to the target period.
         // 2. If the divider's counter is zero or the reload flag is true: The divider counter is set to P and the reload flag is cleared.
@@ -284,7 +298,7 @@ static inline unsigned int update_pulse(nesapu_t *apu, int ch, unsigned int cycl
         {
             if (apu->pulse[ch].sweep_value)
             {
-                --apu->pulse[ch].sweep_value;
+                --(apu->pulse[ch].sweep_value);
             } 
             else if (apu->pulse[ch].sweep_enabled && apu->pulse[ch].sweep_shift)  // TODO: Not sure if pulse_sweep_enabled must be true
             {
@@ -322,7 +336,7 @@ static inline unsigned int update_pulse(nesapu_t *apu, int ch, unsigned int cycl
     // 
     // Clock length counter @ half frame if not halted
     // https://www.nesdev.org/wiki/APU_Length_Counter
-    if (!apu->pulse[ch].lenhalt_envloop && apu->pulse[ch].length_value && apu->frame_half)
+    if (!apu->pulse[ch].lenhalt_envloop && apu->pulse[ch].length_value && apu->half_frame)
     {
         --(apu->pulse[ch].length_value);
     }
@@ -331,7 +345,7 @@ static inline unsigned int update_pulse(nesapu_t *apu, int ch, unsigned int cycl
     if (!apu->pulse[ch].length_value) return 0;
     if (apu->pulse[ch].sweep_timer_mute) return 0;
     if (!pulse_waveform_table[apu->pulse[ch].duty][apu->pulse[ch].sequencer_value]) return 0;
-    return (apu->pulse[ch].constant_volume ? apu->pulse[ch].volume_evperiod : apu->pulse[ch].envelope_decay);
+    return (apu->pulse[ch].constant_volume ? apu->pulse[ch].volume_envperiod : apu->pulse[ch].envelope_decay);
 }
 
 
@@ -348,7 +362,7 @@ static inline unsigned int update_triangle(nesapu_t *apu, unsigned int cycles)
     //
     // Clock linear counter @ quater frame
     // https://www.nesdev.org/wiki/APU_Triangle
-    if (apu->frame_quarter)
+    if (apu->quarter_frame)
     {
         // In order:
         // 1. If the linear counter reload flag is set, the linear counter is reloaded with the counter reload value,
@@ -370,7 +384,7 @@ static inline unsigned int update_triangle(nesapu_t *apu, unsigned int cycles)
     // 
     // Clock length counter @ half frame if not halted
     // https://www.nesdev.org/wiki/APU_Length_Counter
-    if (!apu->triangle_lnrctl_lenhalt && apu->triangle_length_value && apu->frame_half)
+    if (!apu->triangle_lnrctl_lenhalt && apu->triangle_length_value && apu->half_frame)
     {
         --(apu->triangle_length_value);
     }
@@ -391,6 +405,75 @@ static inline unsigned int update_triangle(nesapu_t *apu, unsigned int cycles)
 }
 
 
+/*
+ * https://www.nesdev.org/wiki/APU_Noise
+ * 
+ *     Timer --> Shift Register   Length Counter
+ *                    |                |
+ *                    v                v
+ * Envelope -------> Gate ----------> Gate --> (to mixer)
+ */
+static inline unsigned int update_noise(nesapu_t* apu, unsigned int cycles)
+{
+    //
+    // Clock envelope @ quater frame
+    // https://www.nesdev.org/wiki/APU_Envelope
+    if (apu->quarter_frame)
+    {
+        if (apu->noise_envelope_start)
+        {
+            apu->noise_envelope_decay = 15;
+            apu->noise_envelope_value = apu->noise_volume_envperiod;
+            apu->noise_envelope_start = false;
+        }
+        else
+        {
+            if (apu->noise_envelope_value)
+            {
+                --(apu->noise_envelope_value);
+            }
+            else
+            {
+                apu->noise_envelope_value = apu->noise_volume_envperiod;
+                if (apu->noise_envelope_decay)
+                {
+                    --(apu->noise_envelope_decay);
+                }
+                else if (apu->noise_lenhalt_envloop)
+                {
+                    apu->noise_envelope_decay = 15;
+                }
+            }
+        }
+    }
+    // Clock noise channel timer
+    unsigned int seq_clk = timer_count_down(&(apu->noise_timer_value), apu->noise_timer_period + 1, cycles);
+    for (; seq_clk > 0; --seq_clk)
+    {
+        // When the timer clocks the shift register, the following occur in order:
+        // 1) Feedback is calculated as the exclusive-OR of bit 0 and one other bit: bit 6 if Mode flag is set, otherwise bit 1.
+        uint16_t feedback = (apu->noise_shift_reg & 0x0001) ^ (apu->noise_mode ? ((apu->noise_shift_reg >> 6) & 0x0001) : ((apu->noise_shift_reg >> 1) & 0x0001));
+        // 2) The shift register is shifted right by one bit.
+        apu->noise_shift_reg = apu->noise_shift_reg >> 1;
+        // 3) Bit 14, the leftmost bit, is set to the feedback calculated earlier.
+        apu->noise_shift_reg |= (feedback << 14);
+    }
+    // 
+    // Clock length counter @ half frame if not halted
+    // https://www.nesdev.org/wiki/APU_Length_Counter
+    if (!apu->noise_lenhalt_envloop && apu->noise_length_value && apu->half_frame)
+    {
+        --(apu->noise_length_value);
+    }
+    // return value
+    if (!apu->noise_enabled) return 0;
+    // The mixer receives the current envelope volume except when bit 0 of the shift register is set, or the length counter is 0
+    if (apu->noise_shift_reg & 0x01) return 0;
+    if (!apu->noise_length_value) return 0;
+    return (apu->noise_constant_volume ? apu->noise_volume_envperiod : apu->noise_envelope_decay);
+}
+
+
 nesapu_t * nesapu_create(bool format, unsigned int clock, unsigned int srate, unsigned int max_sample_count)
 {
     nesapu_t *apu = (nesapu_t*)VGM_MALLOC(sizeof(nesapu_t));
@@ -403,14 +486,8 @@ nesapu_t * nesapu_create(bool format, unsigned int clock, unsigned int srate, un
     // blip
     apu->blip = blip_new((int)max_sample_count);
     blip_set_rates(apu->blip, apu->clock_rate, apu->sample_rate);
-    // frame counter
-    apu->sequencer_step = 0;
-    apu->sequence_mode = false;
-    apu->frame_quarter = false;
-    apu->frame_half = false;
-    apu->frame_accu_fp = 0;
     apu->frame_period_fp = float_to_q16((float)apu->clock_rate / 240.0f);  // 240Hz frame counter period
-    //nesapu_reset(a);
+    nesapu_reset(apu);
     return apu;
 }
 
@@ -429,13 +506,94 @@ void nesapu_destroy(nesapu_t *apu)
 }
 
 
+void nesapu_reset(nesapu_t* apu)
+{
+    // frame counter
+    apu->sequencer_step = 0;
+    apu->sequence_mode = false;
+    apu->quarter_frame = false;
+    apu->half_frame = false;
+    apu->frame_accu_fp = 0;
+    //
+    // Enable Channel NT21 on startup
+    // From: https://wiki.nesdev.com/w/index.php/Talk:NSF
+    // Regarding 4015h, well... it's empirical. My experience says that setting 4015h to 0Fh
+    // is required in order to get *a lot of* tunes starting playing. I don't remember of *any* broken
+    // tune by setting such value. So, it's recommended *to follow* such thing. --Zepper 14:25, 29 March 2012 (PDT)
+    // 
+    // Pulse1
+    apu->pulse[0].enabled = true;
+    apu->pulse[0].duty = 0;
+    apu->pulse[0].lenhalt_envloop = false;
+    apu->pulse[0].constant_volume = false;
+    apu->pulse[0].envelope_start = false;
+    apu->pulse[0].envelope_value = 0;
+    apu->pulse[0].volume_envperiod = 0;
+    apu->pulse[0].sweep_enabled = false;
+    apu->pulse[0].sweep_period = 0;
+    apu->pulse[0].sweep_value = 0;
+    apu->pulse[0].sweep_negate = false;
+    apu->pulse[0].sweep_shift = 0;
+    apu->pulse[0].sweep_target = 0;
+    apu->pulse[0].sweep_reload = false;
+    apu->pulse[0].timer_period = 0;
+    apu->pulse[0].timer_value = 0;
+    apu->pulse[0].sequencer_value = 0;
+    apu->pulse[0].sweep_timer_mute = true;
+    // Pulse2
+    apu->pulse[1].enabled = true;
+    apu->pulse[1].duty = 0;
+    apu->pulse[1].lenhalt_envloop = false;
+    apu->pulse[1].constant_volume = false;
+    apu->pulse[1].envelope_start = false;
+    apu->pulse[1].envelope_value = 0;
+    apu->pulse[1].volume_envperiod = 0;
+    apu->pulse[1].sweep_enabled = false;
+    apu->pulse[1].sweep_period = 0;
+    apu->pulse[1].sweep_value = 0;
+    apu->pulse[1].sweep_negate = false;
+    apu->pulse[1].sweep_shift = 0;
+    apu->pulse[1].sweep_target = 0;
+    apu->pulse[1].sweep_reload = false;
+    apu->pulse[1].timer_period = 0;
+    apu->pulse[1].timer_value = 0;
+    apu->pulse[1].sequencer_value = 0;
+    apu->pulse[1].sweep_timer_mute = true;
+    // Triangle
+    apu->triangle_enabled = true;
+    apu->triangle_length_value = 0;
+    apu->triangle_lnrctl_lenhalt = false;
+    apu->triangle_linear_period = 0;
+    apu->triangle_linear_value = 0;
+    apu->triangle_linear_reload = false;
+    apu->triangle_timer_period = 0;
+    apu->triangle_timer_period_bad = true;
+    apu->triangle_timer_value = 0;
+    apu->triangle_sequencer_value = 0;
+    // Noise
+    apu->noise_enabled = true;
+    apu->noise_lenhalt_envloop = false;
+    apu->noise_constant_volume = false;
+    apu->noise_constant_volume = 0;
+    apu->noise_volume_envperiod = 0;
+    apu->noise_mode = false;
+    apu->noise_envelope_start = false;
+    apu->noise_envelope_decay = 0;
+    apu->noise_envelope_value = 0;
+    apu->noise_length_value = 0;
+    apu->noise_timer_period = 0;
+    apu->noise_timer_value = 0;
+    apu->noise_shift_reg = 1;
+}
+
+
 static inline int16_t nesapu_run_and_sample(nesapu_t *apu, unsigned int cycles)
 {
     update_frame_counter(apu, cycles);
     unsigned int p1 = update_pulse(apu, 0, cycles);
     unsigned int p2 = update_pulse(apu, 1, cycles);
     unsigned int tr = update_triangle(apu, cycles);
-    unsigned int ns = 0;
+    unsigned int ns = update_noise(apu, cycles);
     unsigned int dm = 0;
     q29_t f = mixer_pulse_table[p1 + p2] + mixer_tnd_table[3 * tr + 2 * ns + dm];
     int16_t s16 = q29_to_s16(f);
@@ -480,7 +638,7 @@ void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)
         apu->pulse[0].duty = (val & 0xc0) >> 6;         // Duty (DD), index to tbl_pulse_waveform
         apu->pulse[0].lenhalt_envloop = (val & 0x20);     // Length counter halt or Envelope loop (L)
         apu->pulse[0].constant_volume = (val & 0x10);   // Constant volume (true) or Envelope enable (false) (C)
-        apu->pulse[0].volume_evperiod = (val & 0xf);    // Volume or period of envelope (VVVV)
+        apu->pulse[0].volume_envperiod = (val & 0xf);    // Volume or period of envelope (VVVV)
         break;
     case 0x01:  // $4001: EPPP NSSS, Sweep unit: enabled (E), period (P), negate (N), shift (S)
         apu->pulse[0].sweep_enabled = (val & 0x80);     // Sweep enable (E)
@@ -511,7 +669,7 @@ void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)
         apu->pulse[1].duty = (val & 0xc0) >> 6;               // Duty (DD), index to tbl_pulse_waveform
         apu->pulse[1].lenhalt_envloop = (val & 0x20);         // Length counter halt or Envelope loop (L)
         apu->pulse[1].constant_volume = (val & 0x10);         // Constant volume (true) or Envelope enable (false) (C)
-        apu->pulse[1].volume_evperiod = (val & 0xf);          // Volume or period of envelope (VVVV)
+        apu->pulse[1].volume_envperiod = (val & 0xf);         // Volume or period of envelope (VVVV)
         break;
     case 0x05:  // $4005: EPPP NSSS, Sweep unit: enabled (E), period (P), negate (N), shift (S)
         apu->pulse[1].sweep_enabled = (val & 0x80);           // Sweep enable (E)
@@ -557,6 +715,29 @@ void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)
         apu->triangle_linear_reload = true;  // site effect: sets the linear counter reload flag 
         //apu->triangle_timer_value = apu->triangle_timer_period;
         break;
+    // Noise
+    case 0x0c:  // $400C: --LC VVVV, Length counter halt, constant volume/envelope flag, and volume/envelope divider period
+        apu->noise_lenhalt_envloop = (val & 0x20);      // Envelope loop/length counter halt (L)
+        apu->noise_constant_volume = (val & 0x10);      // Constant volume (C)
+        apu->noise_volume_envperiod = (val & 0x0f);     // Volume / Envelope period (VVVV)
+        break;
+    case 0x0d:  // Not used
+        break;
+    case 0x0e:  // $400E: M--- PPPP, Mode and period
+        apu->noise_mode = (val & 0x80); // Mode Flag (M)
+        if (apu->format)    // PAL
+        {
+            apu->noise_timer_period = noise_timer_period_pal[val & 0x0f];   // Noise period (PPPP) 
+        }
+        else
+        {
+            apu->noise_timer_period = noise_timer_period_ntsc[val & 0x0f];  // Noise period (PPPP)
+        }
+        break;
+    case 0x0f:  // $400F: llll l---, Length counter load and envelope restart 
+        apu->noise_length_value = length_counter_table[(val & 0xf8) >> 3];  // Length counter value (lllll)
+        apu->noise_envelope_start = true;   //Side effects: Sets start flag
+        break;
     // Status
     case 0x15:  // $4015: ---D NT21, Enable DMC (D), noise (N), triangle (T), and pulse channels (2/1)
         if (val & 0x01)
@@ -587,6 +768,16 @@ void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)
         {
             apu->triangle_enabled = false;
             apu->triangle_length_value = 0;
+        }
+        if (val & 0x08)
+        {
+            apu->noise_enabled = true;
+        }
+        else
+        {
+            // Writing a zero to any of the channel enable bits will silence that channel and immediately set its length counter to 0.
+            apu->noise_enabled = false;
+            apu->noise_length_value = 0;
         }
         break;
     // Frame counter
