@@ -12,7 +12,7 @@ extern "C" {
 
 
 #define NESAPU_MAX_SAMPLE_SIZE   1024
-#define NESAPU_RAM_CACHE_SIZE    1024  
+#define NESAPU_RAM_CACHE_SIZE    4096  
 
 typedef struct nesapu_ram_s nesapu_ram_t;
 struct nesapu_ram_s

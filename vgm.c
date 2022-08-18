@@ -329,7 +329,7 @@ static int vgm_exec(vgm_t *vgm)
                     {
                         // first 2 bytes are RAM address
                         reader->read(reader, (uint8_t *)&data16, vgm->data_pos + 7, 2);
-                        nesapu_add_ram(vgm->apu, vgm->data_pos + 9, data16, data32 - 2);
+                        nesapu_add_ram(vgm->apu, vgm->data_pos + 9, data16, (uint16_t)(data32 - 2));
                     }
                     else
                     {
