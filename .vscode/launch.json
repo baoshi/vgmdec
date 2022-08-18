@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
-            "args": ["test/wily.vgm"],
+            "args": ["test/dmc.vgm"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

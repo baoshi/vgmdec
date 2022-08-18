@@ -1,7 +1,15 @@
 {
     "files.associations": {
         "memory.h": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "__locale": "c",
+        "__string": "c",
+        "bitset": "c",
+        "locale": "c",
+        "ostream": "c",
+        "string": "c",
+        "string_view": "c",
+        "utility": "c"
     },
     "workbench.editorAssociations": {
         "*.vgm": "hexEditor.hexedit"

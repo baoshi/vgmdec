@@ -11,20 +11,19 @@ extern "C" {
 #endif
 
 
-#define NESAPU_MAX_SAMPLE_SIZE     1024
-
+#define NESAPU_MAX_SAMPLE_SIZE   1024
+#define NESAPU_RAM_CACHE_SIZE    1024  
 
 typedef struct nesapu_ram_s nesapu_ram_t;
 struct nesapu_ram_s
 {
     size_t offset;          // data start position in VGM file
     uint16_t addr;          // ram start address
-    uint16_t length;        // length of ram block
-    uint16_t cache_size;    // 
+    uint16_t len;           // length of ram block
     uint16_t cache_addr;    // cache start address
-    uint16_t cache_length;  // cache length
-    uint8_t  *data;         
-    nesapu_ram_t *next;
+    uint16_t cache_len;     // cache length
+    uint8_t  *cache;        // cache data
+    nesapu_ram_t *next;     // next ram data block
 };
 
 
@@ -93,14 +92,33 @@ typedef struct nesapu_s
     unsigned int  noise_timer_period;           // Channel timer period
     unsigned int  noise_timer_value;            // Channel timer value
     uint16_t      noise_shift_reg;              // Noise shift register
+    // DMC Channel
+    bool          dmc_enabled;
+    bool          dmc_loop;
+    uint8_t       dmc_output;
+    uint16_t      dmc_sample_addr;
+    uint16_t      dmc_sample_len;
+    unsigned int  dmc_timer_period;
+    unsigned int  dmc_timer_value;
+    uint16_t      dmc_read_addr;
+    uint16_t      dmc_read_remaining;
+    uint8_t       dmc_output_shift_reg;
+    bool          dmc_read_buffer_empty;
+    uint8_t       dmc_read_buffer;
+
+    nesapu_ram_t  *ram_list;                    // APU accessible RAM list
+    uint8_t       *ram_cache;                   // Read cache for RAM, shared by all RAM blocks
+    nesapu_ram_t  *ram_active;                  // Active ram block (using cache)
 } nesapu_t;
 
 
 nesapu_t * nesapu_create(file_reader_t *reader, bool format, unsigned int clock, unsigned int srate);
-void nesapu_destroy(nesapu_t *a);
-void nesapu_reset(nesapu_t *a);
-void nesapu_write_reg(nesapu_t *a, uint16_t reg, uint8_t val);
-void nesapu_get_samples(nesapu_t *apu, int16_t *buf, unsigned int samples);
+void    nesapu_destroy(nesapu_t *a);
+void    nesapu_reset(nesapu_t *a);
+void    nesapu_write_reg(nesapu_t *a, uint16_t reg, uint8_t val);
+void    nesapu_get_samples(nesapu_t *apu, int16_t *buf, unsigned int samples);
+void    nesapu_add_ram(nesapu_t *apu, size_t offset, uint16_t addr, uint16_t len);
+uint8_t nesapu_read_ram(nesapu_t *apu, uint16_t addr);
 
 #ifdef __cplusplus
 }

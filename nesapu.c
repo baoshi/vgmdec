@@ -37,6 +37,22 @@ static const unsigned int triangle_waveform_table[32] =
 
 
 //
+// DMC channel 
+// https://www.nesdev.org/wiki/APU_DMC
+// Note: The table on Wiki is refering to CPU cycles. DMC APU is clocking at half speed
+static const uint16_t dmc_timer_period_ntsc[16] =
+{
+    //428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106,  84, 72, 54
+    214, 190, 170, 160, 143, 127, 113, 107, 95, 80, 71, 64, 53, 42, 36, 27
+};
+
+static const uint16_t dmc_timer_period_pal[16] =
+{
+    // 398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118,  98,  78,  66,  50
+    199, 177, 158, 149, 138, 118, 105, 149, 138, 74, 66, 59, 49, 39, 33, 25
+};
+
+//
 // Mixer
 // https://wiki.nesdev.org/w/index.php/APU_Mixer#Emulation
 //
@@ -474,6 +490,36 @@ static inline unsigned int update_noise(nesapu_t* apu, unsigned int cycles)
 }
 
 
+static void dmc_transfer(nesapu_t *apu)
+{
+    if (apu->dmc_read_buffer_empty && apu->dmc_read_remaining)
+    {
+        // 1. The CPU is stalled for up to 4 CPU cycles to allow the longest
+        //    possible write (the return address and write after an IRQ) to
+        //    finish. (not important as we are playing recording)
+        // 2. The sample buffer is filled with the next sample byte read from the current address
+        apu->dmc_read_buffer = nesapu_read_ram(apu, apu->dmc_read_addr);
+        apu->dmc_read_buffer_empty = false;
+        // 3. The address is incremented. If it exceeds $FFFF, it wraps to $8000
+        ++(apu->dmc_read_addr);
+        if (apu->dmc_read_addr == 0x0000)
+            apu->dmc_read_addr = 0x8000;
+        // 4. The bytes remaining counter is decremented. If it becomes zero and the loop flag is set, the sample is
+        //    restarted; otherwise, if the bytes remaining counter becomes zero and the IRQ enabled flag is set,
+        //    the interrupt flag is set.
+        --(apu->dmc_read_remaining);
+        if (apu->dmc_read_remaining == 0)
+        {
+            if (apu->dmc_loop)
+            {
+                apu->dmc_read_addr = apu->dmc_sample_addr;
+                apu->dmc_read_remaining = apu->dmc_sample_len;
+            }
+        }
+    }
+}
+
+
 nesapu_t * nesapu_create(file_reader_t *reader, bool format, unsigned int clock, unsigned int srate)
 {
     nesapu_t *apu = (nesapu_t*)VGM_MALLOC(sizeof(nesapu_t));
@@ -488,6 +534,10 @@ nesapu_t * nesapu_create(file_reader_t *reader, bool format, unsigned int clock,
     apu->blip = blip_new(NESAPU_MAX_SAMPLE_SIZE);
     blip_set_rates(apu->blip, apu->clock_rate, apu->sample_rate);
     apu->frame_period_fp = float_to_q16((float)apu->clock_rate / 240.0f);  // 240Hz frame counter period
+    // ram
+    apu->ram_list = NULL;
+    apu->ram_active = NULL;
+    apu->ram_cache = NULL;
     nesapu_reset(apu);
     return apu;
 }
@@ -497,6 +547,19 @@ void nesapu_destroy(nesapu_t *apu)
 {
     if (apu != NULL)
     {
+        // Free ram list
+        nesapu_ram_t *ram = apu->ram_list, *tram;
+        while (ram)
+        {
+            tram = ram;
+            ram = ram->next;
+            VGM_FREE(tram);
+        }
+        if (apu->ram_cache)
+        {
+            VGM_FREE(apu->ram_cache);
+        }
+        // Free blip
         if (apu->blip)
         {
             blip_delete(apu->blip);
@@ -517,7 +580,7 @@ void nesapu_reset(nesapu_t* apu)
     apu->frame_accu_fp = 0;
     //
     // Enable Channel NT21 on startup
-    // From: https://wiki.nesdev.com/w/index.php/Talk:NSF
+    // From: https://www.nesdev.org/wiki/Talk:NSF
     // Regarding 4015h, well... it's empirical. My experience says that setting 4015h to 0Fh
     // is required in order to get *a lot of* tunes starting playing. I don't remember of *any* broken
     // tune by setting such value. So, it's recommended *to follow* such thing. --Zepper 14:25, 29 March 2012 (PDT)
@@ -739,6 +802,27 @@ void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)
         apu->noise_length_value = length_counter_table[(val & 0xf8) >> 3];  // Length counter value (lllll)
         apu->noise_envelope_start = true;   //Side effects: Sets start flag
         break;
+    // DMC
+    case 0x10:  // $4010: IL-- RRRR, Flags and Rate
+        apu->dmc_loop = (val & 0x40);   // Loop flag (L)
+        if (apu->format)
+        {
+            apu->dmc_timer_period = dmc_timer_period_ntsc[val & 0x0f];  // Rate index (RRRR)
+        }
+        else
+        {
+            apu->dmc_timer_period = dmc_timer_period_pal[val & 0x0f];  // Rate index (RRRR)
+        }
+        break;
+    case 0x11:  // $4011: -DDD DDDD, Direct load
+        apu->dmc_output = val & 0x7f;   // Direct load (DDD DDDD)
+        break;
+    case 0x12:  // $4012: AAAA AAAA, Sample address
+        apu->dmc_sample_addr = (uint16_t)(0xc000 + ((uint16_t)val << 6)); // Sample address = %11AAAAAA.AA000000 = $C000 + (A * 64)
+        break;
+    case 0x13:  // $4013: LLLL LLLL, Sample length
+        apu->dmc_sample_len = (uint16_t)(((uint16_t)val << 4) + 1); // Sample length = %LLLL.LLLL0001 = (L * 16) + 1 bytes
+        break;
     // Status
     case 0x15:  // $4015: ---D NT21, Enable DMC (D), noise (N), triangle (T), and pulse channels (2/1)
         if (val & 0x01)
@@ -780,6 +864,30 @@ void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)
             apu->noise_enabled = false;
             apu->noise_length_value = 0;
         }
+        if (val & 0x10)
+        {
+            apu->dmc_enabled = true;
+            // If the DMC bit is set, the DMC sample will be restarted only if its bytes remaining is 0.
+            if (0 == apu->dmc_read_remaining)
+            {
+                apu->dmc_read_addr = apu->dmc_sample_addr;
+                apu->dmc_read_remaining = apu->dmc_sample_len;
+                if (!apu->dmc_output_shift_reg) 
+                {
+                    dmc_transfer(apu);
+                }
+            }
+            else
+            {
+                // If there are bits remaining in the 1-byte sample buffer, these will finish playing before the next sample is fetched.
+            }
+        }
+        else
+        {
+            apu->dmc_enabled = false;
+            // If the DMC bit is clear, the DMC bytes remaining will be set to 0 and the DMC will silence when it empties
+            apu->dmc_read_remaining = 0;
+        }
         break;
     // Frame counter
     case 0x17:  // $4017:
@@ -799,4 +907,122 @@ void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)
         }
         break;
     }
+}
+
+
+void nesapu_add_ram(nesapu_t *apu, size_t offset, uint16_t addr, uint16_t len)
+{
+    VGM_PRINTDBG("APU: Add RAM block, start=0x%04X, length=%d, offset=0x%08x\n", addr, len, (int)offset);
+    if (len == 0)
+        return;
+    // We only have one ram cache. If it is used by other ram block, remove it.
+    if (apu->ram_active)
+    {
+        apu->ram_active->cache = NULL;
+        apu->ram_active->cache_addr = 0;
+        apu->ram_active->cache_len = 0;
+    }
+    // Allocate cache if not already allocated
+    if (!apu->ram_cache)
+    {
+        apu->ram_cache = (uint8_t *)VGM_MALLOC(NESAPU_RAM_CACHE_SIZE);
+    }
+    if (apu->ram_cache)
+    {
+        // Allocate new ram structure and read first cache
+        nesapu_ram_t *ram = (nesapu_ram_t *)VGM_MALLOC(sizeof(nesapu_ram_t));
+        if (ram)
+        {
+            ram->offset = offset;
+            ram->addr = addr;
+            ram->len = len;
+            uint16_t toread = len > NESAPU_RAM_CACHE_SIZE ? NESAPU_RAM_CACHE_SIZE : len;
+            if (apu->reader->read(apu->reader, apu->ram_cache, offset, toread) == toread)
+            {
+                ram->cache = apu->ram_cache;
+                ram->cache_addr = addr;
+                ram->cache_len = toread;
+            }
+            else
+            {
+                VGM_FREE(ram);
+                ram = NULL;
+            }
+        }
+        if (ram)
+        {
+            // Insert into ram list
+            ram->next = apu->ram_list;
+            apu->ram_list = ram;
+            apu->ram_active = ram;
+        }
+    }
+    // If anything error (out of memory, cannt read file, etc), just treat the ram does not exist. Music still plays
+    // only DMC channel cannot output sample.
+}
+
+
+uint8_t nesapu_read_ram(nesapu_t *apu, uint16_t addr)
+{
+    // 1. Find which ram block is responsible for the address
+    nesapu_ram_t *ram = NULL;
+    do
+    {
+        ram = apu->ram_active;
+        if (ram)
+        {
+            if ((addr >= ram->addr) && (addr < ram->addr + ram->len))
+                break;
+        }
+        ram = apu->ram_list;
+        while (ram)
+        {
+            if ((addr >= ram->addr) && (addr < ram->addr + ram->len))
+                break;
+            ram = ram->next;
+        }
+    } while (0);
+    if (!ram)
+    {
+        VGM_PRINTDBG("APU: RAM read at 0x%04d not found\n", addr);
+        return 0;
+    }
+    // 2. Test if we need to refetch ram
+    bool refetch = true;
+    if (ram == apu->ram_active)
+    {
+        // If read from active ram, check cache range
+        if ((addr >= ram->cache_addr) && (addr < ram->cache_addr + ram->cache_len))
+            refetch = false;
+    }
+    else
+    {
+        // If not read from active ram, switch active ram
+        apu->ram_active->cache = NULL;
+        apu->ram_active->cache_addr = 0;
+        apu->ram_active->cache_len = 0;
+        apu->ram_active = ram;
+    }
+    // 3. Refetch
+    if (refetch)
+    {
+        size_t offset = ram->offset + addr - ram->addr;
+        uint16_t avail = ram->addr + ram->len - addr;
+        uint16_t toread = avail > NESAPU_RAM_CACHE_SIZE ? NESAPU_RAM_CACHE_SIZE : avail;
+        if (apu->reader->read(apu->reader, apu->ram_cache, offset, toread) == toread)
+        {
+            ram->cache = apu->ram_cache;
+            ram->cache_addr = addr;
+            ram->cache_len = toread;
+        }
+        else
+        {
+            ram->cache = NULL;
+            ram->cache_addr = 0;
+            ram->cache_len = 0;
+        }
+    }
+    // 4. Read
+    uint8_t read = ram->cache ? ram->cache[addr - ram->cache_addr] : 0;
+    return read;
 }

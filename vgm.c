@@ -3,8 +3,7 @@
 #include "nesapu.h"
 #include "vgm.h"
 
-#define VGM_ENABLE_DUMP
-#define VGM_ENABLE_DUMP
+// #define VGM_ENABLE_DUMP
 
 #ifdef VGM_ENABLE_DUMP
 # define VGM_DUMP(...) VGM_PRINTF(__VA_ARGS__)
@@ -128,13 +127,13 @@ vgm_t * vgm_create(file_reader_t *reader)
             read_vgm_gd3(vgm, header.gd3_offset + 0x14);
         }
         // Print Info
-        VGM_DUMP("VGM version %X.%X\n", vgm->version >> 8, vgm->version & 0xff);
-        VGM_DUMP("Total samples: %d+%d (%.2fs+%.2fs)\n", vgm->total_samples, vgm->loop_samples, vgm->total_samples / 44100.0f, vgm->loop_samples / 44100.0f);
-        VGM_DUMP("Track Name:    %s\n", vgm->track_name_en);
-        VGM_DUMP("Game Name:     %s\n", vgm->game_name_en);
-        VGM_DUMP("Author:        %s\n", vgm->author_name_en);
-        VGM_DUMP("Release Date:  %s\n", vgm->release_date);
-        VGM_DUMP("Ripped by:     %s\n", vgm->creator);
+        VGM_PRINTF("VGM version %X.%X\n", vgm->version >> 8, vgm->version & 0xff);
+        VGM_PRINTF("Total samples: %d+%d (%.2fs+%.2fs)\n", vgm->total_samples, vgm->loop_samples, vgm->total_samples / 44100.0f, vgm->loop_samples / 44100.0f);
+        VGM_PRINTF("Track Name:    %s\n", vgm->track_name_en);
+        VGM_PRINTF("Game Name:     %s\n", vgm->game_name_en);
+        VGM_PRINTF("Author:        %s\n", vgm->author_name_en);
+        VGM_PRINTF("Release Date:  %s\n", vgm->release_date);
+        VGM_PRINTF("Ripped by:     %s\n", vgm->creator);
         success = true;
     } while (0);
     if (!success)
@@ -315,18 +314,28 @@ static int vgm_exec(vgm_t *vgm)
                         // tt = data type
                         // ss ss ss ss = size of data
                         // (data) = data
-                reader->read(reader, &tt, vgm->data_pos + 2, 1);  // tt
-                data32 = 0;
-                if (reader->read(reader, (uint8_t *)&data32, vgm->data_pos + 3, 4) != 4)
+                tt = 0; data16 = 0; data32 = 0;
+                reader->read(reader, (uint8_t *)&data32, vgm->data_pos + 3, 4);
+                if (data32 == 0)
                 {
+                    // bad thing happend in VGM file
                     r = -1;
-                    stop = true;
+                    stop = true;   
                 }
                 else
                 {
-                    // TODO: Parse and save data block
+                    reader->read(reader, &tt, vgm->data_pos + 2, 1);  // tt
+                    if (0xc2 == tt) // NES APU RAM write
+                    {
+                        // first 2 bytes are RAM address
+                        reader->read(reader, (uint8_t *)&data16, vgm->data_pos + 7, 2);
+                        nesapu_add_ram(vgm->apu, vgm->data_pos + 9, data16, data32 - 2);
+                    }
+                    else
+                    {
+                        VGM_DUMP("VGM: Data block type=%02x, len=%d\n", tt, data32);
+                    }
                     vgm->data_pos += 7 + data32;
-                    VGM_DUMP("VGM: Data block type=%02x, len=%d\n", tt, data32);
                 }
                 break;
             case 0x68:  // PCM RAM writes, 0x68 0x66 cc oo oo oo dd dd dd ss ss ss
