@@ -14,6 +14,20 @@ extern "C" {
 #define NESAPU_MAX_SAMPLE_SIZE     1024
 
 
+typedef struct nesapu_ram_s nesapu_ram_t;
+struct nesapu_ram_s
+{
+    size_t offset;          // data start position in VGM file
+    uint16_t addr;          // ram start address
+    uint16_t length;        // length of ram block
+    uint16_t cache_size;    // 
+    uint16_t cache_addr;    // cache start address
+    uint16_t cache_length;  // cache length
+    uint8_t  *data;         
+    nesapu_ram_t *next;
+};
+
+
 typedef struct nesapu_s
 {
     file_reader_t *reader;      // reader interface
