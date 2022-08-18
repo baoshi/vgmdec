@@ -168,7 +168,7 @@ void vgm_destroy(vgm_t *vgm)
 
 bool vgm_prepare_playback(vgm_t *vgm, unsigned int srate)
 {
-    vgm->apu = nesapu_create(vgm->rate == 50 ? true : false, vgm->nes_apu_clk, srate, 1024);
+    vgm->apu = nesapu_create(vgm->reader, vgm->rate == 50 ? true : false, vgm->nes_apu_clk, srate);
     if (NULL == vgm->apu)
         return false;
     vgm->sample_rate = srate;

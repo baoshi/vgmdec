@@ -3,17 +3,23 @@
 #include <stdbool.h>
 #include "blip_buf.h"
 #include "fixedpoint.h"
+#include "file_reader.h"
 
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+
+#define NESAPU_MAX_SAMPLE_SIZE     1024
+
+
 typedef struct nesapu_s
 {
-    bool format;        // true: PAL, false: NTSC
-    unsigned int clock_rate;
-    unsigned int sample_rate;
+    file_reader_t *reader;      // reader interface
+    bool format;                // true: PAL, false: NTSC
+    unsigned int clock_rate;    // NES clock rate (typ. 1789772)
+    unsigned int sample_rate;   // Sound sampling rate
     // Blip
     blip_buffer_t *blip;
     int16_t blip_last_sample;
@@ -76,7 +82,7 @@ typedef struct nesapu_s
 } nesapu_t;
 
 
-nesapu_t * nesapu_create(bool format, unsigned int clock, unsigned int srate, unsigned int max_sample_count);
+nesapu_t * nesapu_create(file_reader_t *reader, bool format, unsigned int clock, unsigned int srate);
 void nesapu_destroy(nesapu_t *a);
 void nesapu_reset(nesapu_t *a);
 void nesapu_write_reg(nesapu_t *a, uint16_t reg, uint8_t val);

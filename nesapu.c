@@ -474,17 +474,18 @@ static inline unsigned int update_noise(nesapu_t* apu, unsigned int cycles)
 }
 
 
-nesapu_t * nesapu_create(bool format, unsigned int clock, unsigned int srate, unsigned int max_sample_count)
+nesapu_t * nesapu_create(file_reader_t *reader, bool format, unsigned int clock, unsigned int srate)
 {
     nesapu_t *apu = (nesapu_t*)VGM_MALLOC(sizeof(nesapu_t));
     if (NULL == apu)
         return NULL;
     memset(apu, 0, sizeof(nesapu_t));
+    apu->reader = reader;
     apu->format = format;
     apu->clock_rate = clock;
     apu->sample_rate = srate;
     // blip
-    apu->blip = blip_new((int)max_sample_count);
+    apu->blip = blip_new(NESAPU_MAX_SAMPLE_SIZE);
     blip_set_rates(apu->blip, apu->clock_rate, apu->sample_rate);
     apu->frame_period_fp = float_to_q16((float)apu->clock_rate / 240.0f);  // 240Hz frame counter period
     nesapu_reset(apu);
