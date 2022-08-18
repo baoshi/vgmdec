@@ -15,7 +15,7 @@ typedef struct cfr_s
     FILE* fd;
     uint8_t* cache;
     size_t cache_size;
-    size_t cache_data_length;
+    size_t cache_length;
     size_t cache_offset;
 #ifdef CFR_MEASURE_CACHE_PERFORMACE
     unsigned long long cache_hit;
@@ -43,7 +43,7 @@ static size_t read_direct(cfr_t *ctx, uint8_t *out, size_t offset, size_t length
         if (read > 0)
         {
             ctx->cache_offset = offset;
-            ctx->cache_data_length = read;
+            ctx->cache_length = read;
             length = length > read ? read : length;
             memcpy(out, ctx->cache, length);
             total += length;
@@ -78,12 +78,12 @@ static size_t read(file_reader_t *self, uint8_t *out, size_t offset, size_t leng
         return 0;
 
     // Check if reqest data is already in cache (or part of)
-    if ((ctx->cache_data_length > 0) && (offset + length > ctx->cache_offset) && (offset < ctx->cache_offset + ctx->cache_data_length))
+    if ((ctx->cache_length > 0) && (offset + length > ctx->cache_offset) && (offset < ctx->cache_offset + ctx->cache_length))
     {
         o_c_s = (offset > ctx->cache_offset) ? 0 : (ctx->cache_offset - offset);
         c_s = offset + o_c_s - ctx->cache_offset;
-        if (length - o_c_s > ctx->cache_data_length - c_s)
-            o_c_l = ctx->cache_data_length - c_s;
+        if (length - o_c_s > ctx->cache_length - c_s)
+            o_c_l = ctx->cache_length - c_s;
         else
             o_c_l = length - o_c_s;
         // transfer from catch to output
@@ -160,7 +160,7 @@ file_reader_t * cfr_create(const char* fn, size_t cache_size)
 
         ctx->fd = fd;
         ctx->cache_size = cache_size;
-        ctx->cache_data_length = 0;
+        ctx->cache_length = 0;
         ctx->cache_offset = 0;
 
         ctx->super.self = (file_reader_t*)ctx;
