@@ -95,17 +95,18 @@ typedef struct nesapu_s
     // DMC Channel
     bool          dmc_enabled;
     bool          dmc_loop;
-    uint8_t       dmc_output;
+    unsigned int  dmc_output;
     uint16_t      dmc_sample_addr;
     uint16_t      dmc_sample_len;
     unsigned int  dmc_timer_period;
     unsigned int  dmc_timer_value;
     uint16_t      dmc_read_addr;
     uint16_t      dmc_read_remaining;
-    uint8_t       dmc_output_shift_reg;
-    bool          dmc_read_buffer_empty;
     uint8_t       dmc_read_buffer;
-
+    bool          dmc_read_buffer_empty;
+    uint8_t       dmc_output_shift_reg;
+    bool          dmc_output_silence;
+    unsigned int  dmc_output_bits_remaining;
     nesapu_ram_t  *ram_list;                    // APU accessible RAM list
     uint8_t       *ram_cache;                   // Read cache for RAM, shared by all RAM blocks
     nesapu_ram_t  *ram_active;                  // Active ram block (using cache)

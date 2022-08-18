@@ -42,14 +42,14 @@ static const unsigned int triangle_waveform_table[32] =
 // Note: The table on Wiki is refering to CPU cycles. DMC APU is clocking at half speed
 static const uint16_t dmc_timer_period_ntsc[16] =
 {
-    //428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106,  84, 72, 54
-    214, 190, 170, 160, 143, 127, 113, 107, 95, 80, 71, 64, 53, 42, 36, 27
+    428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106,  84, 72, 54
+    //214, 190, 170, 160, 143, 127, 113, 107, 95, 80, 71, 64, 53, 42, 36, 27
 };
 
 static const uint16_t dmc_timer_period_pal[16] =
 {
-    // 398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118,  98,  78,  66,  50
-    199, 177, 158, 149, 138, 118, 105, 149, 138, 74, 66, 59, 49, 39, 33, 25
+    398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118,  98,  78,  66,  50
+    //199, 177, 158, 149, 138, 118, 105, 149, 138, 74, 66, 59, 49, 39, 33, 25
 };
 
 //
@@ -463,8 +463,8 @@ static inline unsigned int update_noise(nesapu_t* apu, unsigned int cycles)
         }
     }
     // Clock noise channel timer
-    unsigned int seq_clk = timer_count_down(&(apu->noise_timer_value), apu->noise_timer_period + 1, cycles);
-    for (; seq_clk > 0; --seq_clk)
+    unsigned int clocks = timer_count_down(&(apu->noise_timer_value), apu->noise_timer_period + 1, cycles);
+    while (clocks)
     {
         // When the timer clocks the shift register, the following occur in order:
         // 1) Feedback is calculated as the exclusive-OR of bit 0 and one other bit: bit 6 if Mode flag is set, otherwise bit 1.
@@ -473,6 +473,7 @@ static inline unsigned int update_noise(nesapu_t* apu, unsigned int cycles)
         apu->noise_shift_reg = apu->noise_shift_reg >> 1;
         // 3) Bit 14, the leftmost bit, is set to the feedback calculated earlier.
         apu->noise_shift_reg |= (feedback << 14);
+        --clocks;
     }
     // 
     // Clock length counter @ half frame if not halted
@@ -518,6 +519,67 @@ static void dmc_transfer(nesapu_t *apu)
         }
     }
 }
+
+
+/*
+ * https://www.nesdev.org/wiki/APU_DMC
+ *
+ *                          Timer
+ *                            |
+ *                            v
+ * Reader ---> Buffer ---> Shifter ---> Output level ---> (to the mixer)
+ */
+static inline unsigned int update_dmc(nesapu_t* apu, unsigned int cycles)
+{
+    // clock channel clock
+    unsigned int clocks = timer_count_down(&(apu->dmc_timer_value), apu->dmc_timer_period + 1, cycles);
+    while (clocks)
+    {
+        // When the timer outputs a clock, the following actions occur in order: 
+        // 1. If the silence flag is clear, the output level changes based on bit 0 of the shift register.
+        //    If the bit is 1, add 2; otherwise, subtract 2.
+        //    But if adding or subtracting 2 would cause the output level to leave the 0-127 range,
+        //    leave the output level unchanged. This means subtract 2 only if the current level is at least 2,
+        //    or add 2 only if the current level is at most 125.
+        if (!apu->dmc_output_silence)
+        {
+            if (apu->dmc_output_shift_reg & 0x01)
+                apu->dmc_output += (apu->dmc_output <= 125) ? 2 : 0;
+            else
+                apu->dmc_output -= (apu->dmc_output >= 2) ? 2 : 0;
+        }
+        // 2. The right shift register is clocked
+        apu->dmc_output_shift_reg >>= 1;
+        // 3. As stated above, the bits - remaining counter is decremented. If it becomes zero, a new output cycle is started.
+        if (apu->dmc_output_bits_remaining > 0)
+        {
+            --(apu->dmc_output_bits_remaining);
+        }
+        if (apu->dmc_output_bits_remaining == 0)
+        {
+            // A new cycle is started as follows :
+            // 1. The bits-remaining counter is loaded with 8.
+            apu->dmc_output_bits_remaining = 8;
+            // 2. If the sample buffer is empty, then the silence flag is set; 
+            //    otherwise, the silence flag is cleared and the sample buffer is emptied into the shift register.
+            if (apu->dmc_read_buffer_empty)
+            {
+                apu->dmc_output_silence = true;
+            }
+            else
+            {
+                apu->dmc_output_silence = false;
+                apu->dmc_output_shift_reg = apu->dmc_read_buffer;
+                apu->dmc_read_buffer_empty = true;
+                // Perform memory read
+                dmc_transfer(apu);
+            }
+        }
+        --clocks;
+    }
+    return (apu->dmc_output);
+}
+
 
 
 nesapu_t * nesapu_create(file_reader_t *reader, bool format, unsigned int clock, unsigned int srate)
@@ -648,6 +710,21 @@ void nesapu_reset(nesapu_t* apu)
     apu->noise_timer_period = 0;
     apu->noise_timer_value = 0;
     apu->noise_shift_reg = 1;
+    // DMC
+    apu->dmc_enabled = false;
+    apu->dmc_loop = false;
+    apu->dmc_output = 0;
+    apu->dmc_sample_addr = 0;
+    apu->dmc_sample_len = 0;
+    apu->dmc_timer_period = 0;
+    apu->dmc_timer_value = 0;
+    apu->dmc_read_buffer = 0;
+    apu->dmc_read_buffer_empty = true;
+    apu->dmc_read_addr = 0;
+    apu->dmc_read_remaining = 0;
+    apu->dmc_output_shift_reg = 0;
+    apu->dmc_output_bits_remaining = 0;
+    apu->dmc_output_silence = true;
 }
 
 
@@ -658,7 +735,7 @@ static inline int16_t nesapu_run_and_sample(nesapu_t *apu, unsigned int cycles)
     unsigned int p2 = update_pulse(apu, 1, cycles);
     unsigned int tr = update_triangle(apu, cycles);
     unsigned int ns = update_noise(apu, cycles);
-    unsigned int dm = 0;
+    unsigned int dm = update_dmc(apu, cycles);
     q29_t f = mixer_pulse_table[p1 + p2] + mixer_tnd_table[3 * tr + 2 * ns + dm];
     int16_t s16 = q29_to_s16(f);
     return s16;
