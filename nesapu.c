@@ -382,8 +382,11 @@ static inline unsigned int update_pulse(nesapu_t *apu, int ch, unsigned int cycl
     // Clock pulse channel timer and update sequencer
     // https://www.nesdev.org/wiki/APU_Pulse
     // Timer counting downwards from 0 at every other CPU cycle. So we set timer limit to  2x (timer_period + 1).
-    unsigned int seq_clk = timer_count_down(&(apu->pulse[ch].timer_value), (apu->pulse[ch].timer_period + 1) << 1, cycles);
-    if (seq_clk) timer_count_down(&(apu->pulse[ch].sequencer_value), 8, seq_clk);
+    if (!apu->pulse[ch].sweep_timer_mute)
+    {
+        unsigned int seq_clk = timer_count_down(&(apu->pulse[ch].timer_value), (apu->pulse[ch].timer_period + 1) << 1, cycles);
+        if (seq_clk) timer_count_down(&(apu->pulse[ch].sequencer_value), 8, seq_clk);
+    }
     // 
     // Clock length counter @ half frame if not halted
     // https://www.nesdev.org/wiki/APU_Length_Counter
@@ -498,17 +501,20 @@ static inline unsigned int update_noise(nesapu_t* apu, unsigned int cycles)
         }
     }
     // Clock noise channel timer
-    unsigned int clocks = timer_count_down(&(apu->noise_timer_value), apu->noise_timer_period + 1, cycles);
-    while (clocks)
+    if (apu->noise_timer_period > 0)
     {
-        // When the timer clocks the shift register, the following occur in order:
-        // 1) Feedback is calculated as the exclusive-OR of bit 0 and one other bit: bit 6 if Mode flag is set, otherwise bit 1.
-        uint16_t feedback = (apu->noise_shift_reg & 0x0001) ^ (apu->noise_mode ? ((apu->noise_shift_reg >> 6) & 0x0001) : ((apu->noise_shift_reg >> 1) & 0x0001));
-        // 2) The shift register is shifted right by one bit.
-        apu->noise_shift_reg = apu->noise_shift_reg >> 1;
-        // 3) Bit 14, the leftmost bit, is set to the feedback calculated earlier.
-        apu->noise_shift_reg |= (feedback << 14);
-        --clocks;
+        unsigned int clocks = timer_count_down(&(apu->noise_timer_value), apu->noise_timer_period + 1, cycles);
+        while (clocks)
+        {
+            // When the timer clocks the shift register, the following occur in order:
+            // 1) Feedback is calculated as the exclusive-OR of bit 0 and one other bit: bit 6 if Mode flag is set, otherwise bit 1.
+            uint16_t feedback = (apu->noise_shift_reg & 0x0001) ^ (apu->noise_mode ? ((apu->noise_shift_reg >> 6) & 0x0001) : ((apu->noise_shift_reg >> 1) & 0x0001));
+            // 2) The shift register is shifted right by one bit.
+            apu->noise_shift_reg = apu->noise_shift_reg >> 1;
+            // 3) Bit 14, the leftmost bit, is set to the feedback calculated earlier.
+            apu->noise_shift_reg |= (feedback << 14);
+            --clocks;
+        }
     }
     // 
     // Clock length counter @ half frame if not halted
