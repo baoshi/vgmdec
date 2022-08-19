@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
             break;
         }
         // start play
-        vgm_prepare_playback(vgm, SAMPLE_RATE);
+        vgm_prepare_playback(vgm, SAMPLE_RATE, true);
         SDL_PauseAudioDevice(audio_id, 0);  // unpause
         // Event loop
         while (!quit)

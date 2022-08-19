@@ -109,13 +109,13 @@ vgm_t * vgm_create(file_reader_t *reader)
             vgm->data_offset = 0x40;
         }
         // samples
-        vgm->total_samples = header.total_samples;
+        vgm->total_samples = (unsigned int)(header.total_samples);
         // any loop?
         if (header.loop_offset != 0 && header.loop_samples != 0)
         {
             vgm->loops = 1;
             vgm->loop_offset = header.loop_offset + 0x1c;
-            vgm->loop_samples = header.loop_samples;
+            vgm->loop_samples = (unsigned int)(header.loop_samples);
         }
         else
         {
@@ -126,6 +126,9 @@ vgm_t * vgm_create(file_reader_t *reader)
         {
             read_vgm_gd3(vgm, header.gd3_offset + 0x14);
         }
+        vgm->complete_samples = vgm->total_samples + vgm->loop_samples;
+        vgm->played_samples = 0;
+        vgm->fadeout_samples = 0;
         // Print Info
         VGM_PRINTF("VGM version %X.%X\n", vgm->version >> 8, vgm->version & 0xff);
         VGM_PRINTF("Total samples: %d+%d (%.2fs+%.2fs)\n", vgm->total_samples, vgm->loop_samples, vgm->total_samples / 44100.0f, vgm->loop_samples / 44100.0f);
@@ -165,7 +168,7 @@ void vgm_destroy(vgm_t *vgm)
 }
 
 
-bool vgm_prepare_playback(vgm_t *vgm, unsigned int srate)
+bool vgm_prepare_playback(vgm_t *vgm, unsigned int srate, bool fadeout)
 {
     vgm->apu = nesapu_create(vgm->reader, vgm->rate == 50 ? true : false, vgm->nes_apu_clk, srate);
     if (NULL == vgm->apu)
@@ -173,6 +176,14 @@ bool vgm_prepare_playback(vgm_t *vgm, unsigned int srate)
     vgm->sample_rate = srate;
     vgm->data_pos = (size_t)vgm->data_offset;
     vgm->samples_waiting = 0;
+    vgm->played_samples = 0;
+    // Fadeout: If true, last VGM_FADEOUT_SECONDS or 5% of the samples, whichever is shorter, is going to be used as fade out
+    if (fadeout)
+    {
+        unsigned long fades1 = vgm->complete_samples / 20;
+        unsigned long fades2 = VGM_FADEOUT_SECONDS * srate;
+        vgm->fadeout_samples = (unsigned int)(fades1 > fades2 ? fades2 : fades1);
+    }
     return true;
 }
 
@@ -543,11 +554,16 @@ int vgm_get_sample(vgm_t *vgm, int16_t *buf, unsigned int size)
         if (vgm->samples_waiting)
         {
             // If there are samples waiting, read it
-            unsigned int to_read = (vgm->samples_waiting >= size) ? size : vgm->samples_waiting;  // read which ever is less
-            nesapu_get_samples(vgm->apu, buf + samples, to_read);
-            vgm->samples_waiting -= to_read;
-            samples += to_read;
-            size -= to_read;
+            unsigned int read = (vgm->samples_waiting >= size) ? size : vgm->samples_waiting;  // read which ever is less
+            nesapu_get_samples(vgm->apu, buf + samples, read);
+            vgm->samples_waiting -= read;
+            samples += read;
+            size -= read;
+            vgm->played_samples += read;
+            if (vgm->played_samples + vgm->fadeout_samples > vgm->complete_samples) // not very accurate but shall work
+            {
+                nesapu_fade_enable(vgm->apu, vgm->fadeout_samples);
+            }
         }
         else
         {

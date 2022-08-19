@@ -14,7 +14,7 @@ extern "C" {
 
 #define VGM_GD3_STR_MAX_LEN     64      // Max string length in GD3 tags
 #define VGM_SAMPLE_RATE         44100   // Fixed sample rate for all VGM files
-
+#define VGM_FADEOUT_SECONDS     2
 
 PACK(struct vgm_header_s
 {
@@ -99,10 +99,10 @@ typedef struct vgm_s
     // From VGM file
     uint32_t version;
     uint32_t data_offset;
-    uint32_t total_samples;
+    unsigned int total_samples;
     int loops;
     uint32_t loop_offset;
-    uint32_t loop_samples;
+    unsigned int loop_samples;
     uint32_t rate;          // (experimental: to find out 50/60Hz)
     uint32_t nes_apu_clk;   // NES APU clock
     char *track_name_en;    // track name in English
@@ -117,12 +117,15 @@ typedef struct vgm_s
     size_t data_pos;                // position of current data
     unsigned int samples_waiting;   // # of samples waiting, in 44100Hz unit
     nesapu_t *apu;                  // NES APU
+    unsigned long complete_samples; // Total samples including total + loop
+    unsigned long played_samples;   // Played samples
+    unsigned int fadeout_samples;   // From which sample fadeout shall start
  } vgm_t;
 
 
 vgm_t* vgm_create(file_reader_t *reader);
 void vgm_destroy(vgm_t *vgm);
-bool vgm_prepare_playback(vgm_t *vgm, unsigned int srate);
+bool vgm_prepare_playback(vgm_t *vgm, unsigned int srate, bool fadeout);
 int vgm_get_sample(vgm_t *vgm, int16_t *buf, unsigned int size);
 
 #ifdef __cplusplus

@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
         FILE* fd = fopen("sound.bin", "wb");
 
         // start play
-        vgm_prepare_playback(vgm, SAMPLE_RATE);
+        vgm_prepare_playback(vgm, SAMPLE_RATE, true);
         do
         {
             nsamples = vgm_get_sample(vgm, buffer, SOUND_BUFFER_SIZE);

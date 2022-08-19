@@ -12,7 +12,8 @@ extern "C" {
 
 
 #define NESAPU_MAX_SAMPLE_SIZE   1024
-#define NESAPU_RAM_CACHE_SIZE    4096  
+#define NESAPU_RAM_CACHE_SIZE    4096
+#define NESAPU_FADE_STEPS        256
 
 typedef struct nesapu_ram_s nesapu_ram_t;
 struct nesapu_ram_s
@@ -110,16 +111,22 @@ typedef struct nesapu_s
     nesapu_ram_t  *ram_list;                    // APU accessible RAM list
     uint8_t       *ram_cache;                   // Read cache for RAM, shared by all RAM blocks
     nesapu_ram_t  *ram_active;                  // Active ram block (using cache)
+    // Fade control
+    bool          fadeout_enabled;
+    q16_t         fadeout_period_fp;
+    q16_t         fadeout_accu_fp;
+    unsigned int  fadeout_sequencer_value;
 } nesapu_t;
 
 
 nesapu_t * nesapu_create(file_reader_t *reader, bool format, unsigned int clock, unsigned int srate);
-void    nesapu_destroy(nesapu_t *a);
-void    nesapu_reset(nesapu_t *a);
-void    nesapu_write_reg(nesapu_t *a, uint16_t reg, uint8_t val);
+void    nesapu_destroy(nesapu_t *apu);
+void    nesapu_reset(nesapu_t *apu);
+void    nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val);
 void    nesapu_get_samples(nesapu_t *apu, int16_t *buf, unsigned int samples);
 void    nesapu_add_ram(nesapu_t *apu, size_t offset, uint16_t addr, uint16_t len);
 uint8_t nesapu_read_ram(nesapu_t *apu, uint16_t addr);
+void    nesapu_fade_enable(nesapu_t *apu, unsigned int samples);
 
 #ifdef __cplusplus
 }
