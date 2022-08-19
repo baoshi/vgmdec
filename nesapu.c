@@ -800,7 +800,7 @@ static inline int16_t nesapu_run_and_sample(nesapu_t *apu, unsigned int cycles)
 }
 
 
-void nesapu_get_samples1(nesapu_t *apu, int16_t *buf, unsigned int samples)
+void nesapu_get_samples(nesapu_t *apu, int16_t *buf, unsigned int samples)
 {
     unsigned int cycles = (unsigned int)blip_clocks_needed(apu->blip, (int)samples);
     unsigned int period = cycles / samples; // rough sampling period. blip helps resampling
@@ -828,7 +828,7 @@ void nesapu_get_samples1(nesapu_t *apu, int16_t *buf, unsigned int samples)
 }
 
 
-void nesapu_get_samples(nesapu_t *apu, int16_t *buf, unsigned int samples)
+void nesapu_get_samples_rough(nesapu_t *apu, int16_t *buf, unsigned int samples)
 {
     int16_t s;
     for (unsigned int i = 0; i < samples; ++i)
