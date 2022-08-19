@@ -2,15 +2,40 @@
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-project ("vgmdec")
+project ("vgmdec" VERSION 0.9.0)
 
-# Add source to this project's executable.
+add_library(vgmdec INTERFACE)
+target_sources(vgmdec INTERFACE
+	blip_buf.c
+	file_reader_cached.c
+	fixedpoint.c
+	vgm.c
+	nesapu.c
+)
+if (PICO_PLATFORM MATCHES rp2040)
+	target_sources(vgmdec INTERFACE
+		file_reader_cached_fatfs.c
+	)
+else()
+	target_sources(vgmdec INTERFACE
+		file_reader_cached.c
+	)
+endif()
+target_include_directories(vgmdec INTERFACE ${CMAKE_CURRENT_LIST_DIR})
+
+
 add_executable (reader_test
 	file_reader_cached.c
 	reader_test.c
 )
 
+add_executable(make_const_tables 
+	make_const_tables.c
+)
+
+
 if (WIN32)
+
 	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 	set(SDL2_DIR ${PROJECT_SOURCE_DIR}/windows)
 	find_package(SDL2 REQUIRED)
@@ -18,25 +43,16 @@ if (WIN32)
 	add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 
 	add_executable (vgmplay
-		blip_buf.c
-		file_reader_cached.c
-		fixedpoint.c
-		vgm.c
-		nesapu.c
 		vgmplay.c
 	)
 	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
-	target_link_libraries(vgmplay ${SDL2_LIBRARIES})
+	target_link_libraries(vgmplay vgmdec ${SDL2_LIBRARIES})
 	set_target_properties(vgmplay PROPERTIES C_STANDARD 99)
 
 	add_executable (vgmdump
-		blip_buf.c
-		file_reader_cached.c
-		fixedpoint.c
-		vgm.c
-		nesapu.c
 		vgmdump.c
 	)
+	target_link_libraries(vgmplay vgmdec)
 	set_target_properties(vgmdump PROPERTIES C_STANDARD 99)
 
 elseif (UNIX)
@@ -50,25 +66,16 @@ elseif (UNIX)
 	set_source_files_properties(blip_buf.c PROPERTIES COMPILE_FLAGS -Wno-conversion)
 
 	add_executable (vgmplay
-		blip_buf.c
-		file_reader_cached.c
-		fixedpoint.c
-		vgm.c
-		nesapu.c
 		vgmplay.c
 	)
 	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
-	target_link_libraries(vgmplay ${SDL2_LDFLAGS})
+	target_link_libraries(vgmplay vgmdec ${SDL2_LDFLAGS})
 	set_property(TARGET vgmplay PROPERTY C_STANDARD 99)
 
 	add_executable (vgmdump
-		blip_buf.c
-		file_reader_cached.c
-		fixedpoint.c
-		vgm.c
-		nesapu.c
 		vgmdump.c
 	)
+	target_link_libraries(vgmdump vgmdec)
 	set_property(TARGET vgmdump PROPERTY C_STANDARD 99)
 
 endif()	
