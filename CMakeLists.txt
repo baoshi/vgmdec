@@ -7,7 +7,6 @@ project ("vgmdec" VERSION 0.9.0)
 add_library(vgmdec INTERFACE)
 target_sources(vgmdec INTERFACE
 	blip_buf.c
-	fixedpoint.c
 	vgm.c
 	nesapu.c
 )
@@ -44,7 +43,7 @@ if (WIN32)
 	add_executable (vgmdump
 		vgmdump.c
 	)
-	target_link_libraries(vgmplay vgmdec)
+	target_link_libraries(vgmdump vgmdec)
 	set_target_properties(vgmdump PROPERTIES C_STANDARD 99)
 
 	add_executable (reader_test

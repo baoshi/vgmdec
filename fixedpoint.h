@@ -25,8 +25,10 @@ typedef int32_t q16_t;
 typedef int32_t q29_t;
 #define float_to_q29(x) ((q29_t)((x) * (float)(1 << 29)))
 #define q29_to_float(x) ((x) / (float)(1 << 29))
-#define q29_mul(x, y) (((x)>>15)*((y)>>14))
-int16_t q29_to_s16(q29_t x);
+#define q29_mul(x, y)   (((x)>>15)*((y)>>14))
+// Map q29 formatted (0-1) sample to signed 16 bit interger sound sample
+#define q29_to_sample(x)   (int16_t)(((x) - 268435456) >> 13)
+
 
 #ifdef __cplusplus
 }

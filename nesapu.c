@@ -39,22 +39,20 @@ static const unsigned int triangle_waveform_table[32] =
 //
 // DMC channel 
 // https://www.nesdev.org/wiki/APU_DMC
-// Note: The table on Wiki is refering to CPU cycles. DMC APU is clocking at half speed
 static const uint16_t dmc_timer_period_ntsc[16] =
 {
     428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106,  84, 72, 54
-    //214, 190, 170, 160, 143, 127, 113, 107, 95, 80, 71, 64, 53, 42, 36, 27
 };
 
 static const uint16_t dmc_timer_period_pal[16] =
 {
     398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118,  98,  78,  66,  50
-    //199, 177, 158, 149, 138, 118, 105, 149, 138, 74, 66, 59, 49, 39, 33, 25
 };
+
 
 //
 // Mixer
-// https://wiki.nesdev.org/w/index.php/APU_Mixer#Emulation
+// https://www.nesdev.org/wiki/APU_Mixer
 //
 // Generate table using make_const_tables.c
 
@@ -155,12 +153,19 @@ static const uint16_t noise_timer_period_pal[16] =
  * @param counter       Input initial counter value. When counting finish, return finish counter value.
  * @param period        Counting period.
  * @return unsigned int Number of times counter has reloaded from 0 to next period
+ * 
+ * @note Most cases \param cycles < \param period, it is faster we use while loop than divide
  *
  */
 static inline unsigned int timer_count_down(unsigned int *counter, unsigned int period, unsigned int cycles)
 {
-    unsigned int clocks = cycles / period;
-    unsigned int extra = cycles % period;
+    unsigned int clocks = 0;
+    while (cycles >= period)
+    {
+        cycles -= period;
+        ++clocks;
+    }
+    unsigned int extra = cycles;
     if (extra > *counter)
     {
         *counter = *counter + period - extra;
@@ -512,7 +517,14 @@ static inline unsigned int update_noise(nesapu_t* apu, unsigned int cycles)
             // 2) The shift register is shifted right by one bit.
             apu->noise_shift_reg = apu->noise_shift_reg >> 1;
             // 3) Bit 14, the leftmost bit, is set to the feedback calculated earlier.
-            apu->noise_shift_reg |= (feedback << 14);
+            if (feedback)
+            {
+                apu->noise_shift_reg |= 0x4000;  // 100 0000 0000 0000
+            }
+            else
+            {
+                apu->noise_shift_reg &= 0x3fff; // 011 1111 1111 1111
+            }
             --clocks;
         }
     }
@@ -808,8 +820,7 @@ static inline int16_t nesapu_run_and_sample(nesapu_t *apu, unsigned int cycles)
         }
         f = q29_mul(f, fadeout_table[apu->fadeout_sequencer_value]);
     }
-    int16_t s16 = q29_to_s16(f);
-    return s16;
+    return q29_to_sample(f);
 }
 
 
