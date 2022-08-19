@@ -7,7 +7,6 @@ project ("vgmdec" VERSION 0.9.0)
 add_library(vgmdec INTERFACE)
 target_sources(vgmdec INTERFACE
 	blip_buf.c
-	file_reader_cached.c
 	fixedpoint.c
 	vgm.c
 	nesapu.c
@@ -16,22 +15,15 @@ if (PICO_PLATFORM MATCHES rp2040)
 	target_sources(vgmdec INTERFACE
 		file_reader_cached_fatfs.c
 	)
+	target_link_libraries(vgmdec INTERFACE
+		fatfs
+	)
 else()
 	target_sources(vgmdec INTERFACE
 		file_reader_cached.c
 	)
 endif()
 target_include_directories(vgmdec INTERFACE ${CMAKE_CURRENT_LIST_DIR})
-
-
-add_executable (reader_test
-	file_reader_cached.c
-	reader_test.c
-)
-
-add_executable(make_const_tables 
-	make_const_tables.c
-)
 
 
 if (WIN32)
@@ -55,6 +47,15 @@ if (WIN32)
 	target_link_libraries(vgmplay vgmdec)
 	set_target_properties(vgmdump PROPERTIES C_STANDARD 99)
 
+	add_executable (reader_test
+		file_reader_cached.c
+		reader_test.c
+	)
+
+	add_executable(make_const_tables 
+		make_const_tables.c
+	)
+
 elseif (UNIX)
 
 	include(FindPkgConfig)
@@ -77,5 +78,14 @@ elseif (UNIX)
 	)
 	target_link_libraries(vgmdump vgmdec)
 	set_property(TARGET vgmdump PROPERTY C_STANDARD 99)
+
+	add_executable (reader_test
+		file_reader_cached.c
+		reader_test.c
+	)
+
+	add_executable(make_const_tables 
+		make_const_tables.c
+	)
 
 endif()	
