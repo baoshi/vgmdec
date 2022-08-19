@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
-            "args": ["test/goonies.vgm"],
+            "args": ["test/dmc.vgm"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

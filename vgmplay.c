@@ -18,7 +18,7 @@ void sdl_audio_callback(void* user, Uint8* stream, int len)
     unsigned int samples = (unsigned int)(len / 2); // len is in byte, each sample is 2 bytes
     if (samples > 0)
     {
-        int r = vgm_get_sample((vgm_t*)user, buffer, samples);
+        int r = vgm_get_samples((vgm_t*)user, buffer, samples);
         if (r == samples)   // all sampels are received
         {
             SDL_memcpy(stream, (void *)buffer, (size_t)len);

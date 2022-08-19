@@ -1,7 +1,14 @@
 #pragma once
+
+#ifndef NESAPU_USE_BLIPBUF
+#define NESAPU_USE_BLIPBUF 1
+#endif
+
 #include <stdint.h>
 #include <stdbool.h>
-#include "blip_buf.h"
+#if NESAPU_USE_BLIPBUF
+# include "blip_buf.h"
+#endif
 #include "fixedpoint.h"
 #include "file_reader.h"
 
@@ -10,10 +17,10 @@
 extern "C" {
 #endif
 
-
-#define NESAPU_MAX_SAMPLE_SIZE   1024
-#define NESAPU_RAM_CACHE_SIZE    4096
-#define NESAPU_FADE_STEPS        256
+#define NESAPU_SAMPLE_RATE      44100
+#define NESAPU_MAX_SAMPLE_SIZE  1024
+#define NESAPU_RAM_CACHE_SIZE   4096
+#define NESAPU_FADE_STEPS       256
 
 typedef struct nesapu_ram_s nesapu_ram_t;
 struct nesapu_ram_s
@@ -34,12 +41,15 @@ typedef struct nesapu_s
     bool format;                // true: PAL, false: NTSC
     unsigned int clock_rate;    // NES clock rate (typ. 1789772)
     unsigned int sample_rate;   // Sound sampling rate
+#if NESAPU_USE_BLIPBUF    
     // Blip
     blip_buffer_t *blip;
     int16_t blip_last_sample;
+#else    
     // Sampling counter
     q16_t    sample_period_fp;
     q16_t    sample_accu_fp;
+#endif    
     // frame counter
     uint8_t  sequencer_step;    // sequencer step, 1-2-3-4 or 1-2-3-4-5
     bool     sequence_mode;     // false: 4-step sequence. true: 5-step sequence. Set by $4017 bit 7

@@ -126,7 +126,7 @@ typedef struct vgm_s
 vgm_t* vgm_create(file_reader_t *reader);
 void vgm_destroy(vgm_t *vgm);
 bool vgm_prepare_playback(vgm_t *vgm, unsigned int srate, bool fadeout);
-int vgm_get_sample(vgm_t *vgm, int16_t *buf, unsigned int size);
+int vgm_get_samples(vgm_t *vgm, int16_t *buf, unsigned int size);
 
 #ifdef __cplusplus
 }

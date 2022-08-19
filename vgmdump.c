@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
         vgm_prepare_playback(vgm, SAMPLE_RATE, true);
         do
         {
-            nsamples = vgm_get_sample(vgm, buffer, SOUND_BUFFER_SIZE);
+            nsamples = vgm_get_samples(vgm, buffer, SOUND_BUFFER_SIZE);
             if (nsamples > 0)
                 fwrite(buffer, sizeof(int16_t), (size_t)nsamples, fd);
         } while (nsamples == SOUND_BUFFER_SIZE);

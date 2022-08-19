@@ -628,12 +628,15 @@ nesapu_t * nesapu_create(file_reader_t *reader, bool format, unsigned int clock,
     apu->format = format;
     apu->clock_rate = clock;
     apu->sample_rate = srate;
-    // Sampling
-    apu->sample_period_fp = float_to_q16((float)apu->clock_rate / 44100.0f);
+#if NESAPU_USE_BLIPBUF
     // blip
     apu->blip = blip_new(NESAPU_MAX_SAMPLE_SIZE);
     blip_set_rates(apu->blip, apu->clock_rate, apu->sample_rate);
     apu->frame_period_fp = float_to_q16((float)apu->clock_rate / 240.0f);  // 240Hz frame counter period
+#else
+    // Sampling
+    apu->sample_period_fp = float_to_q16((float)apu->clock_rate / NESAPU_SAMPLE_RATE);
+#endif
     // ram
     apu->ram_list = NULL;
     apu->ram_active = NULL;
@@ -659,12 +662,14 @@ void nesapu_destroy(nesapu_t *apu)
         {
             VGM_FREE(apu->ram_cache);
         }
+#if NESAPU_USE_BLIPBUF        
         // Free blip
         if (apu->blip)
         {
             blip_delete(apu->blip);
             apu->blip = 0;
         }
+#endif
         VGM_FREE(apu);
     }
 }
@@ -672,8 +677,10 @@ void nesapu_destroy(nesapu_t *apu)
 
 void nesapu_reset(nesapu_t* apu)
 {
+#if !NESAPU_USE_BLIPBUF
     // samplling
     apu->sample_accu_fp = 0;
+#endif
     // fade control
     apu->fadeout_enabled = false;
     apu->fadeout_period_fp = 0;
@@ -800,6 +807,8 @@ static inline int16_t nesapu_run_and_sample(nesapu_t *apu, unsigned int cycles)
 }
 
 
+#if NESAPU_USE_BLIPBUF
+
 void nesapu_get_samples(nesapu_t *apu, int16_t *buf, unsigned int samples)
 {
     unsigned int cycles = (unsigned int)blip_clocks_needed(apu->blip, (int)samples);
@@ -827,8 +836,9 @@ void nesapu_get_samples(nesapu_t *apu, int16_t *buf, unsigned int samples)
     blip_read_samples(apu->blip, (short *)buf, (int)samples, 0);
 }
 
+#else
 
-void nesapu_get_samples_rough(nesapu_t *apu, int16_t *buf, unsigned int samples)
+void nesapu_get_samples(nesapu_t *apu, int16_t *buf, unsigned int samples)
 {
     int16_t s;
     for (unsigned int i = 0; i < samples; ++i)
@@ -840,6 +850,8 @@ void nesapu_get_samples_rough(nesapu_t *apu, int16_t *buf, unsigned int samples)
         apu->sample_accu_fp -= int_to_q16(cycles);
     }
 }
+
+#endif
 
 
 void nesapu_write_reg(nesapu_t *apu, uint16_t reg, uint8_t val)

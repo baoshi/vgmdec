@@ -546,7 +546,7 @@ static int vgm_exec(vgm_t *vgm)
 }
 
 
-int vgm_get_sample(vgm_t *vgm, int16_t *buf, unsigned int size)
+int vgm_get_samples(vgm_t *vgm, int16_t *buf, unsigned int size)
 {
     int samples = 0;
     while (size > 0)
