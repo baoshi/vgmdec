@@ -566,6 +566,7 @@ static void dmc_transfer(nesapu_t *apu)
  */
 static inline unsigned int update_dmc(nesapu_t* apu, unsigned int cycles)
 {
+    if (!apu->dmc_enabled) return 0;
     // clock channel clock
     unsigned int clocks = timer_count_down(&(apu->dmc_timer_value), apu->dmc_timer_period + 1, cycles);
     while (clocks)
