@@ -627,6 +627,8 @@ nesapu_t * nesapu_create(file_reader_t *reader, bool format, unsigned int clock,
     apu->format = format;
     apu->clock_rate = clock;
     apu->sample_rate = srate;
+    // Sampling
+    apu->sample_period_fp = float_to_q16((float)apu->clock_rate / 44100.0f);
     // blip
     apu->blip = blip_new(NESAPU_MAX_SAMPLE_SIZE);
     blip_set_rates(apu->blip, apu->clock_rate, apu->sample_rate);
@@ -669,6 +671,8 @@ void nesapu_destroy(nesapu_t *apu)
 
 void nesapu_reset(nesapu_t* apu)
 {
+    // samplling
+    apu->sample_accu_fp = 0;
     // fade control
     apu->fadeout_enabled = false;
     apu->fadeout_period_fp = 0;
@@ -795,7 +799,7 @@ static inline int16_t nesapu_run_and_sample(nesapu_t *apu, unsigned int cycles)
 }
 
 
-void nesapu_get_samples(nesapu_t *apu, int16_t *buf, unsigned int samples)
+void nesapu_get_samples1(nesapu_t *apu, int16_t *buf, unsigned int samples)
 {
     unsigned int cycles = (unsigned int)blip_clocks_needed(apu->blip, (int)samples);
     unsigned int period = cycles / samples; // rough sampling period. blip helps resampling
@@ -820,6 +824,20 @@ void nesapu_get_samples(nesapu_t *apu, int16_t *buf, unsigned int samples)
     blip_add_delta(apu->blip, time, delta);
     blip_end_frame(apu->blip, time);
     blip_read_samples(apu->blip, (short *)buf, (int)samples, 0);
+}
+
+
+void nesapu_get_samples(nesapu_t *apu, int16_t *buf, unsigned int samples)
+{
+    int16_t s;
+    for (unsigned int i = 0; i < samples; ++i)
+    {
+        apu->sample_accu_fp += apu->sample_period_fp;
+        unsigned int cycles = (unsigned int)(q16_to_int(apu->sample_accu_fp));
+        s = nesapu_run_and_sample(apu, cycles);
+        buf[i] = s;
+        apu->sample_accu_fp -= int_to_q16(cycles);
+    }
 }
 
 

@@ -37,6 +37,9 @@ typedef struct nesapu_s
     // Blip
     blip_buffer_t *blip;
     int16_t blip_last_sample;
+    // Sampling counter
+    q16_t    sample_period_fp;
+    q16_t    sample_accu_fp;
     // frame counter
     uint8_t  sequencer_step;    // sequencer step, 1-2-3-4 or 1-2-3-4-5
     bool     sequence_mode;     // false: 4-step sequence. true: 5-step sequence. Set by $4017 bit 7
