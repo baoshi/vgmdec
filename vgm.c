@@ -6,7 +6,7 @@
 // #define VGM_ENABLE_DUMP
 
 #ifdef VGM_ENABLE_DUMP
-# define VGM_DUMP(...) VGM_PRINTF(__VA_ARGS__)
+# define VGM_DUMP(...) VGM_PRINTINF(__VA_ARGS__)
 #else
 # define VGM_DUMP(...)
 #endif
@@ -130,13 +130,13 @@ vgm_t * vgm_create(file_reader_t *reader)
         vgm->played_samples = 0;
         vgm->fadeout_samples = 0;
         // Print Info
-        VGM_PRINTF("VGM version %X.%X\n", vgm->version >> 8, vgm->version & 0xff);
-        VGM_PRINTF("Total samples: %d+%d (%.2fs+%.2fs)\n", vgm->total_samples, vgm->loop_samples, vgm->total_samples / 44100.0f, vgm->loop_samples / 44100.0f);
-        VGM_PRINTF("Track Name:    %s\n", vgm->track_name_en);
-        VGM_PRINTF("Game Name:     %s\n", vgm->game_name_en);
-        VGM_PRINTF("Author:        %s\n", vgm->author_name_en);
-        VGM_PRINTF("Release Date:  %s\n", vgm->release_date);
-        VGM_PRINTF("Ripped by:     %s\n", vgm->creator);
+        VGM_DUMP("VGM: Version %X.%X\n", vgm->version >> 8, vgm->version & 0xff);
+        VGM_DUMP("VGM: Total samples: %d+%d (%.2fs+%.2fs)\n", vgm->total_samples, vgm->loop_samples, vgm->total_samples / 44100.0f, vgm->loop_samples / 44100.0f);
+        VGM_DUMP("VGM: Track Name:    %s\n", vgm->track_name_en);
+        VGM_DUMP("VGM: Game Name:     %s\n", vgm->game_name_en);
+        VGM_DUMP("VGM: Author:        %s\n", vgm->author_name_en);
+        VGM_DUMP("VGM: Release Date:  %s\n", vgm->release_date);
+        VGM_DUMP("VGM: Ripped by:     %s\n", vgm->creator);
         success = true;
     } while (0);
     if (!success)
@@ -350,7 +350,6 @@ static int vgm_exec(vgm_t *vgm)
                 }
                 break;
             case 0x68:  // PCM RAM writes, 0x68 0x66 cc oo oo oo dd dd dd ss ss ss
-                VGM_DUMP("VGM: PCM writes\n");
                 vgm->data_pos += 12;
                 break;
             case 0x70:  // 0x7n:  wait n+1 samples
@@ -577,7 +576,7 @@ int vgm_get_samples(vgm_t *vgm, int16_t *buf, unsigned int size)
             }
             else if (r == 0)
             {
-                VGM_DUMP("VGM: Finished\n");
+                VGM_PRINTINF("VGM: Finished\n");
                 break;
             }
         }

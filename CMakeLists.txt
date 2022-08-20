@@ -14,6 +14,7 @@ if (PICO_PLATFORM MATCHES rp2040)
 	target_sources(vgmdec INTERFACE
 		file_reader_cached_fatfs.c
 	)
+	target_compile_definitions(vgmdec INTERFACE VGMDEC_EMBEDDED NESAPU_USE_BLIPBUF=1)
 	target_link_libraries(vgmdec INTERFACE
 		fatfs
 	)
@@ -21,6 +22,7 @@ else()
 	target_sources(vgmdec INTERFACE
 		file_reader_cached.c
 	)
+	target_compile_definitions(vgmdec INTERFACE NESAPU_USE_BLIPBUF=1)
 endif()
 target_include_directories(vgmdec INTERFACE ${CMAKE_CURRENT_LIST_DIR})
 
