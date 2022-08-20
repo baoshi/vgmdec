@@ -857,13 +857,18 @@ void nesapu_get_samples(nesapu_t *apu, int16_t *buf, unsigned int samples)
 
 void nesapu_get_samples(nesapu_t *apu, int16_t *buf, unsigned int samples)
 {
-    int16_t s;
+    static int32_t prev = 0;
+    int32_t t, s;
     for (unsigned int i = 0; i < samples; ++i)
     {
         apu->sample_accu_fp += apu->sample_period_fp;
         unsigned int cycles = (unsigned int)(q16_to_int(apu->sample_accu_fp));
         s = nesapu_run_and_sample(apu, cycles);
-        buf[i] = s;
+        // simple weighted filter
+        t = s;
+        s = (s + s + s + prev) >> 2;
+        prev = t;
+        buf[i] = (int16_t)s;
         apu->sample_accu_fp -= int_to_q16(cycles);
     }
 }

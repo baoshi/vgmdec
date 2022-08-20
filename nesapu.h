@@ -19,7 +19,7 @@ extern "C" {
 
 #define NESAPU_SAMPLE_RATE      44100
 #define NESAPU_MAX_SAMPLE_SIZE  1500
-#define NESAPU_RAM_CACHE_SIZE   16384
+#define NESAPU_RAM_CACHE_SIZE   4096
 #define NESAPU_FADE_STEPS       256
 
 typedef struct nesapu_ram_s nesapu_ram_t;
