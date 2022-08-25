@@ -14,7 +14,6 @@ if (PICO_PLATFORM MATCHES rp2040)
 	target_sources(vgmdec INTERFACE
 		file_reader_cached_fatfs.c
 	)
-	target_compile_definitions(vgmdec INTERFACE VGMDEC_EMBEDDED NESAPU_USE_BLIPBUF=1)
 	target_link_libraries(vgmdec INTERFACE
 		fatfs
 	)
@@ -22,7 +21,6 @@ else()
 	target_sources(vgmdec INTERFACE
 		file_reader_cached.c
 	)
-	target_compile_definitions(vgmdec INTERFACE NESAPU_USE_BLIPBUF=1)
 endif()
 target_include_directories(vgmdec INTERFACE ${CMAKE_CURRENT_LIST_DIR})
 
@@ -33,7 +31,7 @@ if (WIN32)
 	set(SDL2_DIR ${PROJECT_SOURCE_DIR}/windows)
 	find_package(SDL2 REQUIRED)
 
-	add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+	add_compile_definitions(VGM_WINDOWS _CRT_SECURE_NO_WARNINGS)
 
 	add_executable (vgmplay
 		vgmplay.c
@@ -57,7 +55,7 @@ if (WIN32)
 		make_const_tables.c
 	)
 
-elseif (UNIX)
+elseif (UNIX AND NOT APPLE)
 
 	include(FindPkgConfig)
 	pkg_search_module(SDL2 REQUIRED sdl2)
@@ -66,6 +64,8 @@ elseif (UNIX)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wconversion")
 	# turn off conversion warning on blip_buf.c
 	set_source_files_properties(blip_buf.c PROPERTIES COMPILE_FLAGS -Wno-conversion)
+
+	add_compile_definitions(VGM_LINUX)
 
 	add_executable (vgmplay
 		vgmplay.c

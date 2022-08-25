@@ -1,5 +1,5 @@
 #include <memory.h>
-#include "platform.h"
+#include "vgm_conf.h"
 #include "nesapu.h"
 #include "vgm.h"
 

@@ -2,7 +2,6 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "platform.h"
 #include "file_reader.h"
 #include "nesapu.h"
 

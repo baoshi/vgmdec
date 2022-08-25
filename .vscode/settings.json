@@ -14,5 +14,6 @@
     "workbench.editorAssociations": {
         "*.vgm": "hexEditor.hexedit"
     },
-    "C_Cpp.errorSquiggles": "Disabled"
+    "C_Cpp.errorSquiggles": "Disabled",
+    "cmake.configureOnOpen": true
 }

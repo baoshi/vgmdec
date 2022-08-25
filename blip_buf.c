@@ -6,6 +6,7 @@
 #include <limits.h>
 #include <string.h>
 #include <stdlib.h>
+#include "vgm_conf.h"
 
 /* Library Copyright (C) 2003-2009 Shay Green. This library is free software;
 you can redistribute it and/or modify it under the terms of the GNU Lesser
@@ -114,7 +115,7 @@ blip_t* blip_new( int size )
 	blip_t* m;
 	assert( size >= 0 );
 	
-	m = (blip_t*) malloc( sizeof *m + (size + buf_extra) * sizeof (buf_t) );
+	m = (blip_t*) VGM_MALLOC( sizeof *m + (size + buf_extra) * sizeof (buf_t) );
 	if ( m )
 	{
 		m->factor = time_unit / blip_max_ratio;
@@ -131,7 +132,7 @@ void blip_delete( blip_t* m )
 	{
 		/* Clear fields in case user tries to use after freeing */
 		memset( m, 0, sizeof *m );
-		free( m );
+		VGM_FREE( m );
 	}
 }
 
@@ -177,7 +178,7 @@ int blip_clocks_needed( const blip_t* m, int samples )
 	if ( needed < m->offset )
 		return 0;
 	
-	return (needed - m->offset + m->factor - 1) / m->factor;
+	return (int)((needed - m->offset + m->factor - 1) / m->factor);
 }
 
 void blip_end_frame( blip_t* m, unsigned t )

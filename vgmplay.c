@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <memory.h>
 #include <SDL.h>
-#include "platform.h"
+#include "vgm_conf.h"
 #include "file_reader_cached.h"
 #include "vgm.h"
 

@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <memory.h>
 #include <time.h>       // for clock_t, clock(), CLOCKS_PER_SEC
-#include "platform.h"
+#include "vgm_conf.h"
 #include "file_reader_cached.h"
 #include "vgm.h"
 
