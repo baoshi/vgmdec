@@ -95,7 +95,7 @@ vgm_t * vgm_create(file_reader_t *reader)
         if (header.eof_offset + 4 != reader->size(reader)) break;
         vgm->version = header.version;
         // We only support NES VGM for now
-        if (0 == header.nes_apu_clk > 0) break;
+        if (0 == header.nes_apu_clk) break;
         vgm->nes_apu_clk = header.nes_apu_clk;
         vgm->rate = header.rate;
         if (0 == vgm->rate) vgm->rate = 60;
@@ -369,7 +369,7 @@ static int vgm_exec(vgm_t *vgm)
             case 0x7E:
             case 0x7F:
                 ++vgm->data_pos;
-                vgm->samples_waiting = (data8 & 0x0F) + 1;
+                vgm->samples_waiting = (data8 & 0x0F) + 1U;
                 VGM_DUMP("VGM: Wait %d samples\n", vgm->samples_waiting);
                 r = 1;
                 stop = true;
@@ -556,7 +556,7 @@ int vgm_get_samples(vgm_t *vgm, int16_t *buf, unsigned int size)
             unsigned int read = (vgm->samples_waiting >= size) ? size : vgm->samples_waiting;  // read which ever is less
             nesapu_get_samples(vgm->apu, buf + samples, read);
             vgm->samples_waiting -= read;
-            samples += read;
+            samples += (int)read;
             size -= read;
             vgm->played_samples += read;
             if (vgm->played_samples + vgm->fadeout_samples > vgm->complete_samples) // not very accurate but shall work

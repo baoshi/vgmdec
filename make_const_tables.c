@@ -8,7 +8,7 @@ static void apu_mixer_dump()
     int i;
     float pulse_table[31];
     for (i = 0; i < 31; ++i)
-        pulse_table[i] = 95.52f / (8128.0f / i + 100.0f);
+        pulse_table[i] = 95.52f / (8128.0f / (float)i + 100.0f);
     printf("static const float mixer_pulse_table[31] =\n{\n");
     for (i = 0; i < 30; i++)
     {
@@ -20,7 +20,7 @@ static void apu_mixer_dump()
     printf("%.8ff\n};\n", pulse_table[i]);
     float tnd_table[203];
     for (i = 0; i < 203; ++i)
-        tnd_table[i] = 163.67f / (24329.0f / i + 100.0f);
+        tnd_table[i] = 163.67f / (24329.0f / (float)i + 100.0f);
     printf("\n\nstatic const float mixer_tnd_table[203] =\n{\n");
     for (i = 0; i < 202; i++)
     {
@@ -40,7 +40,7 @@ static void apu_mixer_dump_fp()
     int i;
     float pulse_table[31];
     for (i = 0; i < 31; ++i)
-        pulse_table[i] = 95.52f / (8128.0f / i + 100.0f);
+        pulse_table[i] = 95.52f / (8128.0f / (float)i + 100.0f);
     printf("static const q29_t mixer_pulse_table[31] =\n{\n");
     for (i = 0; i < 30; i++)
     {
@@ -52,7 +52,7 @@ static void apu_mixer_dump_fp()
     printf("%10d\n};\n", float_to_q29(pulse_table[i]));
     float tnd_table[203];
     for (i = 0; i < 203; ++i)
-        tnd_table[i] = 163.67f / (24329.0f / i + 100.0f);
+        tnd_table[i] = 163.67f / (24329.0f / (float)i + 100.0f);
     printf("\n\nstatic const q29_t mixer_tnd_table[203] =\n{\n");
     for (i = 0; i < 202; i++)
     {
@@ -72,7 +72,7 @@ static void fade_dump_fp()
     float fade_table[NESAPU_FADE_STEPS];
     for (i = 0; i < NESAPU_FADE_STEPS; ++i)
     {
-        fade_table[i] = ((float)i) / max;
+        fade_table[i] = ((float)i) / (float)max;
     }
     printf("static const q29_t fadeout_table[NESAPU_FADE_STEPS] =\n{\n");
     for (i = 0; i < NESAPU_FADE_STEPS; ++i)

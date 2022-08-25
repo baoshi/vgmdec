@@ -513,7 +513,15 @@ static inline unsigned int update_noise(nesapu_t* apu, unsigned int cycles)
         {
             // When the timer clocks the shift register, the following occur in order:
             // 1) Feedback is calculated as the exclusive-OR of bit 0 and one other bit: bit 6 if Mode flag is set, otherwise bit 1.
-            uint16_t feedback = (apu->noise_shift_reg & 0x0001) ^ (apu->noise_mode ? ((apu->noise_shift_reg >> 6) & 0x0001) : ((apu->noise_shift_reg >> 1) & 0x0001));
+            uint16_t feedback;
+            if (apu->noise_mode)
+            {
+                feedback = ((apu->noise_shift_reg) ^ (apu->noise_shift_reg >> 6)) & 0x0001;
+            }
+            else
+            {
+                feedback = ((apu->noise_shift_reg) ^ (apu->noise_shift_reg >> 1)) & 0x0001;
+            }
             // 2) The shift register is shifted right by one bit.
             apu->noise_shift_reg = apu->noise_shift_reg >> 1;
             // 3) Bit 14, the leftmost bit, is set to the feedback calculated earlier.
@@ -1189,7 +1197,7 @@ uint8_t nesapu_read_ram(nesapu_t *apu, uint16_t addr)
     if (refetch)
     {
         size_t offset = ram->offset + addr - ram->addr;
-        uint16_t avail = ram->addr + ram->len - addr;
+        uint16_t avail = (uint16_t)(ram->addr + ram->len - addr);
         uint16_t toread = avail > NESAPU_RAM_CACHE_SIZE ? NESAPU_RAM_CACHE_SIZE : avail;
         if (apu->reader->read(apu->reader, apu->ram_cache, offset, toread) == toread)
         {

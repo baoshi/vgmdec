@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
         //fclose(fd);
 
         clock_t end = clock();
-        double time_spent = ((double)end - begin) / CLOCKS_PER_SEC;
+        double time_spent = ((double)end - (double)begin) / CLOCKS_PER_SEC;
         printf("The elapsed time is %f seconds", time_spent);
     } while (0);
         

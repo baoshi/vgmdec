@@ -203,7 +203,7 @@ void cfr_destroy(file_reader_t *cfr)
 void cfr_show_cache_status(file_reader_t* cfr)
 {
     cfr_t *ctx = (cfr_t *)cfr;
-    VGM_PRINTF("Cache Status: (%llu/%llu), hit %.1f%%\n", ctx->cache_hit, ctx->cache_hit + ctx->cache_miss, (ctx->cache_hit * 100.0f) / (ctx->cache_hit + ctx->cache_miss));
+    VGM_PRINTF("Cache Status: (%llu/%llu), hit %.1f%%\n", ctx->cache_hit, ctx->cache_hit + ctx->cache_miss, ((double)(ctx->cache_hit) * 100.0f) / (double)(ctx->cache_hit + ctx->cache_miss));
 }
 
 #endif
