@@ -1,8 +1,10 @@
 #include <stdio.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include <time.h>
 #include "vgm_conf.h"
-#include "file_reader_cached.h"
-#include "vgm.h"
+#include "cached_file_reader.h"
+
 
 #define BUF_SIZE 4096
 uint8_t buf1[BUF_SIZE], buf2[BUF_SIZE];
@@ -49,7 +51,7 @@ int main(int argc, char *argv[])
    
     FILE *fd;
     fd = fopen(argv[1], "rb");
-    file_reader_t *reader = cfr_create(argv[1], 4096);
+    file_reader_t *reader = cfreader_create(argv[1], 4096);
 
     time_t t;
     srand((unsigned)time(&t));
@@ -64,9 +66,9 @@ int main(int argc, char *argv[])
         if (!reader_test(reader, fd, offset, len)) break;
     }
     
-    cfr_show_cache_status(reader);
+    cfreader_show_cache_status(reader);
 
-    cfr_destroy(reader);
+    cfreader_destroy(reader);
     fclose(fd);
 
     return 0;

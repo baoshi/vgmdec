@@ -15,3 +15,8 @@
 #endif
 #endif
 
+#define VGM_FILE_CACHE_SIZE     2048
+
+#define NESAPU_USE_BLIPBUF      1
+#define NESAPU_MAX_SAMPLE_SIZE  1500
+#define NESAPU_RAM_CACHE_SIZE   4096

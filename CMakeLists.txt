@@ -4,26 +4,9 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 project ("vgmdec" VERSION 0.9.0)
 
-add_library(vgmdec INTERFACE)
-target_sources(vgmdec INTERFACE
-	blip_buf.c
-	vgm.c
-	nesapu.c
-)
-if (PICO_PLATFORM MATCHES rp2040)
-	target_sources(vgmdec INTERFACE
-		file_reader_cached_fatfs.c
-	)
-	target_link_libraries(vgmdec INTERFACE
-		fatfs
-	)
-else()
-	target_sources(vgmdec INTERFACE
-		file_reader_cached.c
-	)
-endif()
-target_include_directories(vgmdec INTERFACE ${CMAKE_CURRENT_LIST_DIR})
+add_subdirectory(core)
 
+include_directories(${PROJECT_SOURCE_DIR})
 
 if (WIN32)
 
@@ -34,20 +17,22 @@ if (WIN32)
 	add_compile_definitions(VGM_WINDOWS _CRT_SECURE_NO_WARNINGS)
 
 	add_executable (vgmplay
+		cached_file_reader.c
 		vgmplay.c
 	)
 	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
-	target_link_libraries(vgmplay vgmdec ${SDL2_LIBRARIES})
+	target_link_libraries(vgmplay vgmcore ${SDL2_LIBRARIES})
 	set_target_properties(vgmplay PROPERTIES C_STANDARD 99)
 
 	add_executable (vgmdump
+		cached_file_reader.c
 		vgmdump.c
 	)
-	target_link_libraries(vgmdump vgmdec)
+	target_link_libraries(vgmdump vgmcore)
 	set_target_properties(vgmdump PROPERTIES C_STANDARD 99)
 
 	add_executable (reader_test
-		file_reader_cached.c
+		cached_file_reader.c
 		reader_test.c
 	)
 
@@ -68,20 +53,22 @@ elseif (UNIX AND NOT APPLE)
 	add_compile_definitions(VGM_LINUX)
 
 	add_executable (vgmplay
+		cached_file_reader.c
 		vgmplay.c
 	)
 	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
-	target_link_libraries(vgmplay vgmdec ${SDL2_LDFLAGS})
+	target_link_libraries(vgmplay vgmcore ${SDL2_LDFLAGS})
 	set_property(TARGET vgmplay PROPERTY C_STANDARD 99)
 
 	add_executable (vgmdump
+		cached_file_reader.c
 		vgmdump.c
 	)
-	target_link_libraries(vgmdump vgmdec)
+	target_link_libraries(vgmdump vgmcore)
 	set_property(TARGET vgmdump PROPERTY C_STANDARD 99)
 
 	add_executable (reader_test
-		file_reader_cached.c
+		cached_file_reader.c
 		reader_test.c
 	)
 

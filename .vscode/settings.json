@@ -9,7 +9,8 @@
         "ostream": "c",
         "string": "c",
         "string_view": "c",
-        "utility": "c"
+        "utility": "c",
+        "cached_file_reader.h": "c"
     },
     "workbench.editorAssociations": {
         "*.vgm": "hexEditor.hexedit"

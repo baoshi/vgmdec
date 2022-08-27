@@ -2,7 +2,7 @@
 #include <memory.h>
 #include <SDL.h>
 #include "vgm_conf.h"
-#include "file_reader_cached.h"
+#include "cached_file_reader.h"
 #include "vgm.h"
 
 #define SDL_BUFFER_SIZE 1000
@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
     do
     {
         // Create reader
-        reader = cfr_create(argv[1], READER_CACHE_SIZE);
+        reader = cfreader_create(argv[1], READER_CACHE_SIZE);
         if (!reader)
         {
             fprintf(stderr, "Unable to open %s\n", argv[1]);
@@ -140,12 +140,12 @@ int main(int argc, char *argv[])
                 }
             }
         }
-        cfr_show_cache_status(reader);
+        cfreader_show_cache_status(reader);
     } while (0);
     
     if (audio_id != 0) SDL_CloseAudioDevice(audio_id);
     SDL_Quit();
     if (vgm != 0) vgm_destroy(vgm);
-    if (reader != 0) cfr_destroy(reader);
+    if (reader != 0) cfreader_destroy(reader);
     return 0;
 }
