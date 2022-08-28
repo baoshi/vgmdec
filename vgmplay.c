@@ -5,7 +5,7 @@
 #include "cached_file_reader.h"
 #include "vgm.h"
 
-#define SDL_BUFFER_SIZE 1000
+#define SDL_BUFFER_SIZE 2048
 #define READER_CACHE_SIZE 4096
 #define SAMPLE_RATE 44100
 
