@@ -5,6 +5,7 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 project ("vgmdec" VERSION 0.9.0)
 
 add_subdirectory(core)
+add_subdirectory(fft_q15)
 
 include_directories(${PROJECT_SOURCE_DIR})
 
@@ -21,7 +22,7 @@ if (WIN32)
 		vgmplay.c
 	)
 	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
-	target_link_libraries(vgmplay vgmcore ${SDL2_LIBRARIES})
+	target_link_libraries(vgmplay vgmcore fft_q15 ${SDL2_LIBRARIES})
 	set_target_properties(vgmplay PROPERTIES C_STANDARD 99)
 
 	add_executable (vgmdump
