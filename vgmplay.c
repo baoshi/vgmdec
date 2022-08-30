@@ -72,15 +72,6 @@ void draw_spectrum(SDL_Renderer* renderer, int16_t* data, int len)
     // FFT
     fft_q15(fftdata, len);
 
-    {
-        FILE* fd = fopen("r:\\data.txt", "w");
-        for (int i = 0; i < 1024; ++i)
-        {
-            fprintf(fd, "%d\n", fftdata[i]);
-        }
-        fclose(fd);
-    }
-
     // Collect bins
     index = 1; // skip first point (22050/1024 = 21.5Hz)
     for (int i = 0; i < NUM_BINS; ++i)

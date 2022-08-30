@@ -58,7 +58,38 @@ elseif (UNIX AND NOT APPLE)
 		vgmplay.c
 	)
 	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
-	target_link_libraries(vgmplay vgmcore ${SDL2_LDFLAGS})
+	target_link_libraries(vgmplay vgmcore fft_q15 ${SDL2_LDFLAGS})
+	set_property(TARGET vgmplay PROPERTY C_STANDARD 99)
+
+	add_executable (vgmdump
+		cached_file_reader.c
+		vgmdump.c
+	)
+	target_link_libraries(vgmdump vgmcore)
+	set_property(TARGET vgmdump PROPERTY C_STANDARD 99)
+
+	add_executable (reader_test
+		cached_file_reader.c
+		reader_test.c
+	)
+
+	add_executable(make_const_tables 
+		make_const_tables.c
+	)
+
+elseif (UNIX AND APPLE)
+
+	include(FindPkgConfig)
+	pkg_search_module(SDL2 REQUIRED sdl2)
+
+	add_compile_definitions(VGM_MACOSX)
+
+	add_executable (vgmplay
+		cached_file_reader.c
+		vgmplay.c
+	)
+	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
+	target_link_libraries(vgmplay vgmcore fft_q15 ${SDL2_LDFLAGS})
 	set_property(TARGET vgmplay PROPERTY C_STANDARD 99)
 
 	add_executable (vgmdump
