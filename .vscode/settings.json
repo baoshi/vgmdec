@@ -10,7 +10,11 @@
         "string": "c",
         "string_view": "c",
         "utility": "c",
-        "cached_file_reader.h": "c"
+        "cached_file_reader.h": "c",
+        "chrono": "c",
+        "limits": "c",
+        "ratio": "c",
+        "algorithm": "c"
     },
     "workbench.editorAssociations": {
         "*.vgm": "hexEditor.hexedit"

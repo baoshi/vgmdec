@@ -55,39 +55,69 @@ void sdl_audio_callback(void* user, Uint8* stream, int len)
   */
 q15_t fftdata[SDL_BUFFER_SIZE];
 #define SPECTRUM_HEIGHT 200
-#define NUM_BINS 64
-#define BIN_POINTS 2
-#define BIN_WIDTH 4
-float over_max = 0;
+#define NUM_BINS 32
+#define BIN_WIDTH 6
+int16_t bin_max = 0;
+static struct freq_bin_param_s
+{
+    int base_bin;
+    q15_t scale;
+} bin_param_q15[NUM_BINS] = 
+{
+    {2, 1154},
+    {2, 9455},
+    {2, 19789},
+    {2, 32651},
+    {3, 15893},
+    {4, 3053},
+    {4, 27858},
+    {5, 25965},
+    {6, 31629},
+    {8, 13930},
+    {10, 7937},
+    {12, 16517},
+    {15, 10467},
+    {18, 26994},
+    {23, 6087},
+    {28, 20160},
+    {35, 12238},
+    {43, 25743},
+    {54, 8403},
+    {67, 9495},
+    {83, 16800},
+    {103, 23129},
+    {128, 27551},
+    {160, 4160},
+    {199, 2285},
+    {247, 17789},
+    {307, 28794},
+    {382, 32127},
+    {476, 15126},
+    {592, 26877},
+    {737, 21462},
+    {917, 30632}
+};
+
 void draw_spectrum(SDL_Renderer* renderer, int16_t* data, int len)
 {
     if (len != SDL_BUFFER_SIZE)
         return;
-    float bin_data[NUM_BINS];
-    int index;
+    q15_t bin_data[NUM_BINS];
+    int32_t temp;
+    
 
     // Obtain data
     memcpy(fftdata, data, len * sizeof(int16_t));
-   
     // FFT
     fft_q15(fftdata, len);
+    // bin frequency
+    for (int bin = 0; bin < NUM_BINS; ++bin)
+    {
+        temp = bin_param_q15[bin].scale * (fftdata[bin_param_q15[bin].base_bin] - fftdata[bin_param_q15[bin].base_bin - 1]);
+        bin_data[bin] = fftdata[bin_param_q15[bin].base_bin - 1] + (temp >> 15);
+        if (bin_data[bin] > bin_max) bin_max = bin_data[bin];
+    }
 
-    // Collect bins
-    index = 1; // skip first point (22050/1024 = 21.5Hz)
-    for (int i = 0; i < NUM_BINS; ++i)
-    {
-        bin_data[i] = 0.0f;
-        for (int j = 0; j < BIN_POINTS; ++j)
-        {
-            bin_data[i] += fftdata[index];
-            ++index;
-        }
-    }
-    // map bin_data into 0..SPECTRUM_HEIGHT-1
-    for (int i = 0; i < NUM_BINS; ++i)
-    {
-        bin_data[i] = bin_data[i] * SPECTRUM_HEIGHT / 2000;
-    }
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
     SDL_SetRenderDrawColor(renderer, 0, 0, 192, 255);
@@ -95,9 +125,9 @@ void draw_spectrum(SDL_Renderer* renderer, int16_t* data, int len)
     {
         SDL_Rect rect;
         rect.x = i * BIN_WIDTH;
-        rect.y = 210 - (int)bin_data[i];
+        rect.y = 210 - (int)bin_data[i] / 5;
         rect.w = BIN_WIDTH - 1;
-        rect.h = (int)bin_data[i];
+        rect.h = (int)bin_data[i] / 5;
         SDL_RenderFillRect(renderer, &rect);
     }
     SDL_RenderPresent(renderer);
@@ -199,8 +229,6 @@ int main(int argc, char *argv[])
                     {
                         int16_t* buf = (int16_t*)event.user.data1;
                         int l = (int)(intptr_t)event.user.data2;
-
-                        printf("%d samples\n", l);
                         if (l < SDL_BUFFER_SIZE)
                         {
                             printf("Play finished.\n");
@@ -219,5 +247,6 @@ int main(int argc, char *argv[])
     SDL_Quit();
     if (vgm != 0) vgm_destroy(vgm);
     if (reader != 0) cfreader_destroy(reader);
+    printf("bin_max = %d\n", bin_max);
     return 0;
 }

@@ -108,4 +108,6 @@ elseif (UNIX AND APPLE)
 		make_const_tables.c
 	)
 
+	add_executable(bintest bintest.c)
+
 endif()	
