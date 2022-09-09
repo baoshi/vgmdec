@@ -316,7 +316,6 @@ int fft_q15(q15_t *source, uint16_t length)
     arm_radix2_butterfly_q15(scratchData, length, (q15_t*)twiddleCoefQ15, twidCoefModifier);
     arm_bitreversal_q15(scratchData, length, bitRevFactor, pBitRevTable);
 
-    // put result back (only real part)
     pSrc = source;
     pOut = scratchData;
     for (int i = 0; i < length; i++) 
@@ -327,8 +326,7 @@ int fft_q15(q15_t *source, uint16_t length)
         int32_t im = imaginary * imaginary; // q30
         int32_t s = re + im; // q30
         int32_t v = sqrt_i32(s); // q15
-        q15_t fv = (q15_t)(v);
-        *pSrc++ = fv;
+        *pSrc++ = (q15_t)(v);
     }
 
     return 0;

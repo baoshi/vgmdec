@@ -1,4 +1,4 @@
-﻿cmake_minimum_required (VERSION 3.13)
+cmake_minimum_required (VERSION 3.13)
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
@@ -107,7 +107,5 @@ elseif (UNIX AND APPLE)
 	add_executable(make_const_tables 
 		make_const_tables.c
 	)
-
-	add_executable(bintest bintest.c)
 
 endif()	
