@@ -17,13 +17,13 @@ if (WIN32)
 
 	add_compile_definitions(VGM_WINDOWS _CRT_SECURE_NO_WARNINGS)
 
-	add_executable (vgmplay
+	add_executable (vgmspectrum
 		cached_file_reader.c
-		vgmplay.c
+		vgmspectrum.c
 	)
-	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
-	target_link_libraries(vgmplay vgmcore fft_q15 ${SDL2_LIBRARIES})
-	set_target_properties(vgmplay PROPERTIES C_STANDARD 99)
+	target_include_directories(vgmspectrum PRIVATE ${SDL2_INCLUDE_DIRS})
+	target_link_libraries(vgmspectrum vgmcore fft_q15 ${SDL2_LIBRARIES})
+	set_target_properties(vgmspectrum PROPERTIES C_STANDARD 99)
 
 	add_executable (vgmdump
 		cached_file_reader.c
@@ -53,13 +53,13 @@ elseif (UNIX AND NOT APPLE)
 
 	add_compile_definitions(VGM_LINUX)
 
-	add_executable (vgmplay
+	add_executable (vgmspectrum
 		cached_file_reader.c
-		vgmplay.c
+		vgmspectrum.c
 	)
-	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
-	target_link_libraries(vgmplay vgmcore fft_q15 ${SDL2_LDFLAGS})
-	set_property(TARGET vgmplay PROPERTY C_STANDARD 99)
+	target_include_directories(vgmspectrum PRIVATE ${SDL2_INCLUDE_DIRS})
+	target_link_libraries(vgmspectrum vgmcore fft_q15 ${SDL2_LDFLAGS})
+	set_property(TARGET vgmspectrum PROPERTY C_STANDARD 99)
 
 	add_executable (vgmdump
 		cached_file_reader.c
@@ -84,13 +84,13 @@ elseif (UNIX AND APPLE)
 
 	add_compile_definitions(VGM_MACOSX)
 
-	add_executable (vgmplay
+	add_executable (vgmspectrum
 		cached_file_reader.c
-		vgmplay.c
+		vgmspectrum.c
 	)
-	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
-	target_link_libraries(vgmplay vgmcore fft_q15 ${SDL2_LDFLAGS})
-	set_property(TARGET vgmplay PROPERTY C_STANDARD 99)
+	target_include_directories(vgmspectrum PRIVATE ${SDL2_INCLUDE_DIRS})
+	target_link_libraries(vgmspectrum vgmcore fft_q15 ${SDL2_LDFLAGS})
+	set_property(TARGET vgmspectrum PROPERTY C_STANDARD 99)
 
 	add_executable (vgmdump
 		cached_file_reader.c

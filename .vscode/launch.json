@@ -24,7 +24,7 @@
             ]
         },
         {
-            "name": "GDB",
+            "name": "Linux GDB",
             "type": "cppdbg",
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
@@ -47,5 +47,21 @@
                 }
             ]
         },
+        {
+            "name": "Windows MSVC Launch",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${command:cmake.launchTargetPath}",
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "args": ["test\\The Goonies\\02 The Goonies 'R' Good Enough.vgm"],
+            "environment": [
+                {
+                  "name": "PATH",
+                  "value": "${env.Path};${workspaceRoot}\\windows"
+                }
+            ],
+            "console":"integratedTerminal"
+        }
     ]
 }

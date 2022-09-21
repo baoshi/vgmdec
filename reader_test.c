@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
     {
         offset += (size_t)((rand() % 18));
         len = (size_t)(rand() % 2048);
-        VGM_PRINTF("Test\toff=%lu,\tlen=%lu:\t", offset, len);
+        VGM_PRINTF("Test\toff=%lu,\tlen=%lu:\t", (unsigned long)offset, (unsigned long)len);
         if (!reader_test(reader, fd, offset, len)) break;
     }
     
