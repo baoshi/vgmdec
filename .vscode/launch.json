@@ -54,14 +54,14 @@
             "program": "${command:cmake.launchTargetPath}",
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "args": ["test\\The Goonies\\02 The Goonies 'R' Good Enough.vgm"],
+            "args": ["samples\\The Goonies\\02 The Goonies 'R' Good Enough.vgm"],
             "environment": [
                 {
                   "name": "PATH",
                   "value": "${env.Path};${workspaceRoot}\\windows"
                 }
             ],
-            "console":"integratedTerminal"
+            "console":"externalTerminal"
         }
     ]
 }

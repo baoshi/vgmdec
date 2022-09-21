@@ -19,6 +19,16 @@ if (WIN32)
 
 	add_compile_definitions(VGM_WINDOWS _CRT_SECURE_NO_WARNINGS)
 
+	add_executable (vgmplay
+		ansicon.c
+		cached_file_reader.c
+		vgmplay.c
+	)
+	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
+	target_link_libraries(vgmplay vgmcore ${SDL2_LIBRARIES})
+	set_target_properties(vgmplay PROPERTIES C_STANDARD 99)
+
+
 	add_executable (vgmspectrum
 		cached_file_reader.c
 		vgmspectrum.c
