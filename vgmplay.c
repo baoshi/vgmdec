@@ -45,7 +45,6 @@ int main(int argc, char *argv[])
     file_reader_t *reader = 0;
     vgm_t *vgm = 0;
     SDL_AudioDeviceID audio_id = 0;
-    SDL_Event event;
     int quit = 0;
 
     ansicon_setup();

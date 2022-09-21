@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
             break;
         }
 
-        // FILE* fd = fopen("sound.bin", "wb");
+        FILE* fd = fopen("sound.bin", "wb");
 
         clock_t begin = clock();
         // start play
@@ -51,10 +51,10 @@ int main(int argc, char *argv[])
         do
         {
             nsamples = vgm_get_samples(vgm, buffer, SOUND_BUFFER_SIZE);
-            //if (nsamples > 0)
-            //    fwrite(buffer, sizeof(int16_t), (size_t)nsamples, fd);
+            if (nsamples > 0)
+                fwrite(buffer, sizeof(int16_t), (size_t)nsamples, fd);
         } while (nsamples == SOUND_BUFFER_SIZE);
-        //fclose(fd);
+        fclose(fd);
 
         clock_t end = clock();
         double time_spent = ((double)end - (double)begin) / CLOCKS_PER_SEC;
