@@ -4,8 +4,10 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 project ("vgmdec" VERSION 0.9.0)
 
+add_subdirectory(lib/fft_q15)
+add_subdirectory(lib/cwalk)
 add_subdirectory(core)
-add_subdirectory(fft_q15)
+
 
 include_directories(${PROJECT_SOURCE_DIR})
 
