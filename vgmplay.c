@@ -12,7 +12,7 @@
 #define SAMPLE_RATE 44100
 
 
-unsigned long total_samples = 0;
+unsigned long played_samples = 0;
 
 
 void sdl_audio_callback(void* user, Uint8* stream, int len)
@@ -35,7 +35,7 @@ void sdl_audio_callback(void* user, Uint8* stream, int len)
         {
             SDL_memset(stream, 0, (size_t)len); // return silent
         }
-        total_samples += samples;
+        played_samples += samples;
     }
 }
 
@@ -45,6 +45,7 @@ int main(int argc, char *argv[])
     file_reader_t *reader = 0;
     vgm_t *vgm = 0;
     SDL_AudioDeviceID audio_id = 0;
+    unsigned long complete_samples;
     int quit = 0;
 
     ansicon_setup();
@@ -71,6 +72,7 @@ int main(int argc, char *argv[])
             fprintf(stderr, "Error create vgm object\n");
             break;
         }
+        complete_samples = vgm->complete_samples;
         if (SDL_Init(SDL_INIT_AUDIO) < 0)
         {
             fprintf(stderr, "SDL initialize error\n");
@@ -99,6 +101,10 @@ int main(int argc, char *argv[])
         {
             SDL_Delay(100);
             if (27 == ansicon_getch_non_blocking()) // ESC
+            {
+                quit = true;
+            }
+            if (played_samples >= complete_samples)
             {
                 quit = true;
             }
