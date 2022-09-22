@@ -180,7 +180,6 @@ int ansicon_set_string(const char *color, const char *str)
 {
     unsigned int len = (unsigned int)strlen(str);
     if (len == 0) return 0;
-
     if (color) fputs(color, stdout);
     fputs(str, stdout);
     printf("\033[%uD", len);

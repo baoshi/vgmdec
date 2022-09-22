@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
-            "args": ["-cNT", "samples/P.O.W. - Prisoners of War/01 Title.vgm"],
+            "args": ["samples/P.O.W. - Prisoners of War/01 Title.vgm"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
@@ -54,7 +54,7 @@
             "program": "${command:cmake.launchTargetPath}",
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "args": ["samples\\The Goonies\\02 The Goonies 'R' Good Enough.vgm"],
+            "args": ["samples/Super Contra/01 Thunder Landing (Area 1).vgm"],
             "environment": [
                 {
                   "name": "PATH",

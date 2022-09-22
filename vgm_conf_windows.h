@@ -12,8 +12,8 @@
 # endif
 
 
-#define VGM_PRINTF(...) printf(__VA_ARGS__)
-#define VGM_PRINTINF(...) printf(__VA_ARGS__)
+#define VGM_PRINTF(...) 
+#define VGM_PRINTINF(...)
 #define VGM_PRINTDBG(...) printf(__VA_ARGS__)
 #define VGM_PRINTERR(...) fprintf(stderr, __VA_ARGS__)
 #define VGM_ASSERT assert
