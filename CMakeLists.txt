@@ -6,6 +6,7 @@ project ("vgmdec" VERSION 0.9.0)
 
 add_subdirectory(lib/fft_q15)
 add_subdirectory(lib/cwalk)
+add_subdirectory(lib/parg)
 add_subdirectory(core)
 
 
@@ -25,7 +26,7 @@ if (WIN32)
 		vgmplay.c
 	)
 	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
-	target_link_libraries(vgmplay vgmcore ${SDL2_LIBRARIES})
+	target_link_libraries(vgmplay vgmcore parg ${SDL2_LIBRARIES})
 	set_target_properties(vgmplay PROPERTIES C_STANDARD 99)
 
 
@@ -71,7 +72,7 @@ elseif (UNIX AND NOT APPLE)
 		vgmplay.c
 	)
 	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
-	target_link_libraries(vgmplay vgmcore ${SDL2_LDFLAGS})
+	target_link_libraries(vgmplay vgmcore parg ${SDL2_LDFLAGS})
 	set_target_properties(vgmplay PROPERTIES C_STANDARD 99)
 
 	add_executable (vgmspectrum
@@ -111,7 +112,7 @@ elseif (UNIX AND APPLE)
 		vgmplay.c
 	)
 	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
-	target_link_libraries(vgmplay vgmcore ${SDL2_LDFLAGS})
+	target_link_libraries(vgmplay vgmcore parg ${SDL2_LDFLAGS})
 	set_target_properties(vgmplay PROPERTIES C_STANDARD 99)
 
 	add_executable (vgmspectrum

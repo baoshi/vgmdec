@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <memory.h>
+#include <parg.h>
 #include <SDL.h>
 #include "ansicon.h"
 #include "vgm_conf.h"
@@ -42,9 +43,12 @@ static void sdl_audio_callback(void* user, Uint8* stream, int len)
 
 static void usage()
 {
-    ansicon_puts(ANSI_RED, "Usage:\n");
-    ansicon_puts(ANSI_RED, "vgmplay file.vgm     - Play file.vgm\n");
-    ansicon_puts(ANSI_RED, "vgmplay -d file.vgm  - Dump file.vgm to file.wav\n");
+    ansicon_puts(ANSI_GREEN, "Usage:\n");
+    ansicon_puts(ANSI_GREEN, "vgmplay [-d] [-cChannels] file.vgm\n");
+    ansicon_puts(ANSI_GREEN, "Options\n");
+    ansicon_puts(ANSI_GREEN, "-d  Save output to .wav file\n");
+    ansicon_puts(ANSI_GREEN, "-c  Enable selection of channels:\n");
+    ansicon_puts(ANSI_GREEN, "    Channels for NESAPU: DNT21\n");
 }
 
 
@@ -61,17 +65,42 @@ int main(int argc, char *argv[])
 
     do
     {
-        if (argc < 2)
+        const char *vgm_name = NULL;
+        bool dump = false;
+        const char *channels = "DNT21";
+
+        // Parse command line options
+        struct parg_state ps;
+        int c;
+        parg_init(&ps);
+        while ((c = parg_getopt(&ps, argc, argv, "dc:h")) != -1)
+        {
+            switch (c)
+            {
+            case 1:
+                vgm_name = ps.optarg;
+                break;
+            case 'h':
+                break;
+            case 'd':
+                dump = true;
+                break;
+            case 'c':
+                channels = ps.optarg;
+                break;
+            }
+        }
+        if ((NULL == vgm_name) || ('\0' == vgm_name[0]))
         {
             usage();
             break;
         }
-
+              
         // Create reader
-        reader = cfreader_create(argv[1], READER_CACHE_SIZE);
+        reader = cfreader_create(vgm_name, READER_CACHE_SIZE);
         if (!reader)
         {
-            fprintf(stderr, "Unable to open %s\n", argv[1]);
+            fprintf(stderr, "Unable to open %s\n", vgm_name);
             break;
         }
         // Create decoder
