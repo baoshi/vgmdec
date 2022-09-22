@@ -9,11 +9,11 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
-            "args": ["test/goonies.vgm"],
+            "args": ["samples/P.O.W. - Prisoners of War/01 Title.vgm"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "externalConsole": false,
+            "externalConsole": true,
             "MIMode": "lldb",
             "setupCommands": [
                 {
