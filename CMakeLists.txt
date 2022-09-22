@@ -65,6 +65,15 @@ elseif (UNIX AND NOT APPLE)
 
 	add_compile_definitions(VGM_LINUX)
 
+	add_executable (vgmplay
+		ansicon.c
+		cached_file_reader.c
+		vgmplay.c
+	)
+	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
+	target_link_libraries(vgmplay vgmcore ${SDL2_LDFLAGS})
+	set_target_properties(vgmplay PROPERTIES C_STANDARD 99)
+
 	add_executable (vgmspectrum
 		cached_file_reader.c
 		vgmspectrum.c
@@ -95,6 +104,15 @@ elseif (UNIX AND APPLE)
 	pkg_search_module(SDL2 REQUIRED sdl2)
 
 	add_compile_definitions(VGM_MACOSX)
+
+	add_executable (vgmplay
+		ansicon.c
+		cached_file_reader.c
+		vgmplay.c
+	)
+	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
+	target_link_libraries(vgmplay vgmcore ${SDL2_LDFLAGS})
+	set_target_properties(vgmplay PROPERTIES C_STANDARD 99)
 
 	add_executable (vgmspectrum
 		cached_file_reader.c

@@ -15,7 +15,7 @@
 unsigned long played_samples = 0;
 
 
-void sdl_audio_callback(void* user, Uint8* stream, int len)
+static void sdl_audio_callback(void* user, Uint8* stream, int len)
 {
     static int16_t buffer[SDL_BUFFER_SIZE];
     unsigned int requested = (unsigned int)(len / 2); // len is in byte, each sample is 2 bytes
@@ -40,6 +40,14 @@ void sdl_audio_callback(void* user, Uint8* stream, int len)
 }
 
 
+static void usage()
+{
+    ansicon_puts(ANSI_RED, "Usage:\n");
+    ansicon_puts(ANSI_RED, "vgmplay file.vgm     - Play file.vgm\n");
+    ansicon_puts(ANSI_RED, "vgmplay -d file.vgm  - Dump file.vgm to file.wav\n");
+}
+
+
 int main(int argc, char *argv[])
 {
     file_reader_t *reader = 0;
@@ -49,15 +57,16 @@ int main(int argc, char *argv[])
     int quit = 0;
 
     ansicon_setup();
-
-    if (argc < 2)
-    {
-        VGM_PRINTERR("Usage: vgmdec input\n");
-        return -1;
-    }
+    ansicon_hide_cursor();
 
     do
     {
+        if (argc < 2)
+        {
+            usage();
+            break;
+        }
+
         // Create reader
         reader = cfreader_create(argv[1], READER_CACHE_SIZE);
         if (!reader)
@@ -95,6 +104,12 @@ int main(int argc, char *argv[])
         }
         // start play
         vgm_prepare_playback(vgm, SAMPLE_RATE, true);
+        vgm_nesapu_enable_channel(vgm, VGM_NESAPU_CHANNEL_ALL, false);
+        //vgm_nesapu_enable_channel(vgm, VGM_NESAPU_CHANNEL_PULSE1, true);
+        //vgm_nesapu_enable_channel(vgm, VGM_NESAPU_CHANNEL_PULSE2, true);
+        //vgm_nesapu_enable_channel(vgm, VGM_NESAPU_CHANNEL_TRIANGLE, true);
+        vgm_nesapu_enable_channel(vgm, VGM_NESAPU_CHANNEL_NOISE, true);
+        vgm_nesapu_enable_channel(vgm, VGM_NESAPU_CHANNEL_DMC, true);
         SDL_PauseAudioDevice(audio_id, 0);  // unpause
         // Event loop
         while (!quit)
@@ -116,6 +131,7 @@ int main(int argc, char *argv[])
     if (vgm != 0) vgm_destroy(vgm);
     if (reader != 0) cfreader_destroy(reader);
     
+    ansicon_show_cursor();
     ansicon_restore();
     return 0;
 }
