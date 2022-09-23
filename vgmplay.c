@@ -1,7 +1,19 @@
 #include <stdio.h>
 #include <string.h>
 #include <parg.h>
+#include <cwalk.h>
 #include <SDL.h>
+
+#ifdef _MSC_VER
+# include <direct.h>
+# define getcwd _getcwd
+# define strcasecmp _strcmpi
+# define mkdir(d,m) _mkdir(d)
+#else
+# include <unistd.h>
+# include <sys/stat.h>
+#endif
+
 #include "ansicon.h"
 #include "vgm_conf.h"
 #include "cached_file_reader.h"
@@ -11,7 +23,7 @@
 #define SDL_BUFFER_SIZE 2048
 #define READER_CACHE_SIZE 4096
 #define SAMPLE_RATE 44100
-
+#define MAX_PATH_NAME 256
 
 typedef struct vgmplay_ctrl_s
 {
@@ -38,33 +50,7 @@ static void usage()
 
 static unsigned long played_samples = 0;
 
-
-static void sdl_audio_callback(void* user, Uint8* stream, int len)
-{
-    static int16_t buffer[SDL_BUFFER_SIZE];
-    unsigned int requested = (unsigned int)(len / 2); // len is in byte, each sample is 2 bytes
-    if (requested > 0)
-    {
-        int samples = vgm_get_samples((vgm_t*)user, buffer, requested);
-        if (samples == requested)   // all sampels are received
-        {
-            SDL_memcpy(stream, (void *)buffer, (size_t)len);
-        }
-        else if (samples > 0)     // not all samples are received
-        {
-            SDL_memset(stream, 0, (size_t)len);
-            SDL_memcpy(stream, (void *)buffer, (size_t)(samples * 2));
-        }
-        else
-        {
-            SDL_memset(stream, 0, (size_t)len); // return silent
-        }
-        played_samples += samples;
-    }
-}
-
-
-static void play_progress(vgmplay_ctrl_t *ctrl, bool newline)
+static void show_progress(vgmplay_ctrl_t *ctrl, bool newline)
 {
     int save = 0;
     char progress[256];
@@ -107,6 +93,31 @@ static void play_progress(vgmplay_ctrl_t *ctrl, bool newline)
     else
     {
         ansicon_set_string(ANSI_YELLOW, progress);
+    }
+}
+
+
+static void sdl_audio_callback(void* user, Uint8* stream, int len)
+{
+    static int16_t buffer[SDL_BUFFER_SIZE];
+    unsigned int requested = (unsigned int)(len / 2); // len is in byte, each sample is 2 bytes
+    if (requested > 0)
+    {
+        int samples = vgm_get_samples((vgm_t*)user, buffer, requested);
+        if (samples == requested)   // all sampels are received
+        {
+            SDL_memcpy(stream, (void *)buffer, (size_t)len);
+        }
+        else if (samples > 0)     // not all samples are received
+        {
+            SDL_memset(stream, 0, (size_t)len);
+            SDL_memcpy(stream, (void *)buffer, (size_t)(samples * 2));
+        }
+        else
+        {
+            SDL_memset(stream, 0, (size_t)len); // return silent
+        }
+        played_samples += samples;
     }
 }
 
@@ -193,12 +204,74 @@ static int play(vgm_t *vgm, file_reader_t *reader, vgmplay_ctrl_t *ctrl)
                 paused = !paused;
                 SDL_PauseAudioDevice(audio_id, paused ? 1 : 0);
             }
-            play_progress(ctrl, false);
+            show_progress(ctrl, false);
         }
-        play_progress(ctrl, true);
+        show_progress(ctrl, true);
     } while (0);
     if (audio_id != 0) SDL_CloseAudioDevice(audio_id);
     SDL_Quit();
+    return r;
+}
+
+
+/*
+The header of a wav file Based on: https://docs.fileformat.com/audio/wav/
+*/
+typedef struct wavfile_header_s
+{
+    char    id[4];          /*  4   */
+    int32_t file_size;      /*  4   */
+    char    Format[4];      /*  4   */
+    char    Subchunk1ID[4]; /*  4   */
+    int32_t Subchunk1Size;  /*  4   */
+    int16_t AudioFormat;    /*  2   */
+    int16_t NumChannels;    /*  2   */
+    int32_t SampleRate;     /*  4   */
+    int32_t ByteRate;       /*  4   */
+    int16_t BlockAlign;     /*  2   */
+    int16_t BitsPerSample;  /*  2   */
+    
+    char    Subchunk2ID[4];
+    int32_t Subchunk2Size;
+} wavfile_header_t;
+
+
+static int dump(vgm_t *vgm, file_reader_t *reader, vgmplay_ctrl_t *ctrl, const char *out)
+{
+    int r = 0;
+    FILE *fd = NULL;
+    int16_t buffer[1024];
+    wavfile_header_t header;
+    int nsamples;
+    do
+    {
+        fd = fopen(out, "wb");
+        if (NULL == fd)
+        {
+            r = -1;
+            ansicon_printf(ANSI_RED, "Unable to write to %s\n", out);
+            break;
+        }
+        vgm_prepare_playback(vgm, SAMPLE_RATE, false);
+        vgm_nesapu_enable_channel(vgm, VGM_NESAPU_CHANNEL_ALL, false);
+        vgm_nesapu_enable_channel(vgm, VGM_NESAPU_CHANNEL_PULSE1, ctrl->enable_apu_pulse1);
+        vgm_nesapu_enable_channel(vgm, VGM_NESAPU_CHANNEL_PULSE2, ctrl->enable_apu_pulse2);
+        vgm_nesapu_enable_channel(vgm, VGM_NESAPU_CHANNEL_TRIANGLE, ctrl->enable_apu_triangle);
+        vgm_nesapu_enable_channel(vgm, VGM_NESAPU_CHANNEL_NOISE, ctrl->enable_apu_noise);
+        vgm_nesapu_enable_channel(vgm, VGM_NESAPU_CHANNEL_DMC, ctrl->enable_apu_dmc);
+        played_samples = 0;
+        while (played_samples < ctrl->complete_samples)
+        {
+            nsamples = vgm_get_samples(vgm, buffer, 1024);
+            if (nsamples > 0)
+                fwrite(buffer, sizeof(int16_t), (size_t)nsamples, fd);
+            played_samples += nsamples;
+            if (played_samples % 50000 == 0)
+                show_progress(ctrl, false);
+        }
+        show_progress(ctrl, true);
+    } while (0);
+    if (fd) fclose(fd);
     return r;
 }
 
@@ -213,8 +286,8 @@ int main(int argc, char *argv[])
 
     do
     {
-        const char *vgm_name = NULL;
-        bool dump = false;
+        const char *vgm_file = NULL;
+        bool dump_mode = false;
         const char *channels = "DNT21";
         vgmplay_ctrl_t ctrl;
 
@@ -227,19 +300,19 @@ int main(int argc, char *argv[])
             switch (c)
             {
             case 1:
-                vgm_name = ps.optarg;
+                vgm_file = ps.optarg;
                 break;
             case 'h':
                 break;
             case 'd':
-                dump = true;
+                dump_mode = true;
                 break;
             case 'c':
                 channels = ps.optarg;
                 break;
             }
         }
-        if ((NULL == vgm_name) || ('\0' == vgm_name[0]))
+        if ((NULL == vgm_file) || ('\0' == vgm_file[0]))
         {
             usage();
             break;
@@ -257,17 +330,17 @@ int main(int argc, char *argv[])
         if (strchr(channels, 'd')) ctrl.enable_apu_dmc = true;
 
         // Create reader
-        reader = cfreader_create(vgm_name, READER_CACHE_SIZE);
+        reader = cfreader_create(vgm_file, READER_CACHE_SIZE);
         if (!reader)
         {
-            ansicon_printf(ANSI_RED, "Unable to open %s\n", vgm_name);
+            ansicon_printf(ANSI_RED, "Unable to open %s\n", vgm_file);
             break;
         }
         // Create decoder
         vgm = vgm_create(reader);
         if (!vgm)
         {
-            ansicon_printf(ANSI_RED, "Error parsing vgm file %s\n", vgm_name);
+            ansicon_printf(ANSI_RED, "Error parsing vgm file %s\n", vgm_file);
             break;
         }
         ctrl.complete_samples = vgm->complete_samples;
@@ -285,7 +358,25 @@ int main(int argc, char *argv[])
         ansicon_printf(ANSI_LIGHTBLUE, "VGM: Notes:         %s\n", vgm->notes);
         printf("\n");
 
-        play(vgm, reader, &ctrl);
+        if (!dump_mode)
+        {
+            play(vgm, reader, &ctrl);
+        }
+        else
+        {
+            const char *infile = vgm_file;
+            char infile_abs[MAX_PATH_NAME];
+            char outfile_abs[MAX_PATH_NAME];
+            if (cwk_path_is_relative(infile))
+            {
+                char *cwd = getcwd(NULL, 0);
+                cwk_path_get_absolute(cwd, infile, infile_abs, MAX_PATH_NAME);
+                free(cwd);
+                infile = infile_abs;
+            }
+            cwk_path_change_extension(infile_abs, "wav", outfile_abs, MAX_PATH_NAME);
+            dump(vgm, reader, &ctrl, outfile_abs);
+        }
         
     } while (0);
     
