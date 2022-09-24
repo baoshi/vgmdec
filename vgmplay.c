@@ -378,7 +378,6 @@ int main(int argc, char *argv[])
         ansicon_printf(ANSI_LIGHTBLUE, "VGM: Ripped by:     %s\n", vgm->creator);
         ansicon_printf(ANSI_LIGHTBLUE, "VGM: Notes:         %s\n", vgm->notes);
         printf("\n");
-
         if (!dump_mode)
         {
             play(vgm, reader, &ctrl);
@@ -398,7 +397,7 @@ int main(int argc, char *argv[])
             cwk_path_change_extension(infile_abs, "wav", outfile_abs, MAX_PATH_NAME);
             dump(vgm, reader, &ctrl, outfile_abs);
         }
-        
+        printf("\n");
     } while (0);
     
     if (vgm != 0) vgm_destroy(vgm);
