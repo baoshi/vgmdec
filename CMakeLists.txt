@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.13)
+﻿cmake_minimum_required (VERSION 3.13)
 
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
@@ -40,10 +40,6 @@ if (WIN32)
 	add_executable (reader_test
 		cached_file_reader.c
 		reader_test.c
-	)
-
-	add_executable(make_const_tables 
-		make_const_tables.c
 	)
 
 elseif (UNIX AND NOT APPLE)
