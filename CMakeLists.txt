@@ -26,9 +26,8 @@ if (WIN32)
 		vgmplay.c
 	)
 	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
-	target_link_libraries(vgmplay vgmcore parg ${SDL2_LIBRARIES})
+	target_link_libraries(vgmplay vgmcore parg cwalk ${SDL2_LIBRARIES})
 	set_target_properties(vgmplay PROPERTIES C_STANDARD 99)
-
 
 	add_executable (vgmspectrum
 		cached_file_reader.c
@@ -37,13 +36,6 @@ if (WIN32)
 	target_include_directories(vgmspectrum PRIVATE ${SDL2_INCLUDE_DIRS})
 	target_link_libraries(vgmspectrum vgmcore fft_q15 ${SDL2_LIBRARIES})
 	set_target_properties(vgmspectrum PROPERTIES C_STANDARD 99)
-
-	add_executable (vgmdump
-		cached_file_reader.c
-		vgmdump.c
-	)
-	target_link_libraries(vgmdump vgmcore)
-	set_target_properties(vgmdump PROPERTIES C_STANDARD 99)
 
 	add_executable (reader_test
 		cached_file_reader.c
@@ -72,7 +64,7 @@ elseif (UNIX AND NOT APPLE)
 		vgmplay.c
 	)
 	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
-	target_link_libraries(vgmplay vgmcore parg ${SDL2_LDFLAGS})
+	target_link_libraries(vgmplay vgmcore parg cwalk ${SDL2_LDFLAGS})
 	set_target_properties(vgmplay PROPERTIES C_STANDARD 99)
 
 	add_executable (vgmspectrum
@@ -83,20 +75,9 @@ elseif (UNIX AND NOT APPLE)
 	target_link_libraries(vgmspectrum vgmcore fft_q15 ${SDL2_LDFLAGS})
 	set_property(TARGET vgmspectrum PROPERTY C_STANDARD 99)
 
-	add_executable (vgmdump
-		cached_file_reader.c
-		vgmdump.c
-	)
-	target_link_libraries(vgmdump vgmcore)
-	set_property(TARGET vgmdump PROPERTY C_STANDARD 99)
-
 	add_executable (reader_test
 		cached_file_reader.c
 		reader_test.c
-	)
-
-	add_executable(make_const_tables 
-		make_const_tables.c
 	)
 
 elseif (UNIX AND APPLE)
@@ -112,7 +93,7 @@ elseif (UNIX AND APPLE)
 		vgmplay.c
 	)
 	target_include_directories(vgmplay PRIVATE ${SDL2_INCLUDE_DIRS})
-	target_link_libraries(vgmplay vgmcore parg ${SDL2_LDFLAGS})
+	target_link_libraries(vgmplay vgmcore parg cwalk ${SDL2_LDFLAGS})
 	set_target_properties(vgmplay PROPERTIES C_STANDARD 99)
 
 	add_executable (vgmspectrum
@@ -123,20 +104,9 @@ elseif (UNIX AND APPLE)
 	target_link_libraries(vgmspectrum vgmcore fft_q15 ${SDL2_LDFLAGS})
 	set_property(TARGET vgmspectrum PROPERTY C_STANDARD 99)
 
-	add_executable (vgmdump
-		cached_file_reader.c
-		vgmdump.c
-	)
-	target_link_libraries(vgmdump vgmcore)
-	set_property(TARGET vgmdump PROPERTY C_STANDARD 99)
-
 	add_executable (reader_test
 		cached_file_reader.c
 		reader_test.c
-	)
-
-	add_executable(make_const_tables 
-		make_const_tables.c
 	)
 
 endif()	

@@ -219,20 +219,19 @@ The header of a wav file Based on: https://docs.fileformat.com/audio/wav/
 */
 typedef struct wavfile_header_s
 {
-    char    id[4];          /*  4   */
-    int32_t file_size;      /*  4   */
-    char    Format[4];      /*  4   */
-    char    Subchunk1ID[4]; /*  4   */
-    int32_t Subchunk1Size;  /*  4   */
-    int16_t AudioFormat;    /*  2   */
-    int16_t NumChannels;    /*  2   */
-    int32_t SampleRate;     /*  4   */
-    int32_t ByteRate;       /*  4   */
-    int16_t BlockAlign;     /*  2   */
-    int16_t BitsPerSample;  /*  2   */
-    
-    char    Subchunk2ID[4];
-    int32_t Subchunk2Size;
+    char    chunk_id[4];            // 1-4      "RIFF"
+    int32_t chunk_size;             // 5-8      chunk size (header_size - 8 + data_size)
+    char    format[4];              // 9-12     "WAVE"
+    char    subchunk1_id[4];        // 13-16    format chunk marker "fmt "
+    int32_t subchunk1_size;         // 17-20    chunk1 size (bytes 21-36, 16)
+    int16_t audio_format;           // 21-22    type of format (PCM is 1)
+    int16_t channels;               // 23-24    channels
+    int32_t sample_rate;            // 25-28    sample rate
+    int32_t byte_rate;              // 29-32    sample_rate * bits_per_sample * channels / 8
+    int16_t block_align;            // 33-34    bits_per_sample * channels / 8
+    int16_t bits_per_sample;        // 35-36    bits per sample
+    char    subchunk2_id[4];        // 37-40    data chunk header mark
+    int32_t subchunk2_size;         // 41-44    data chunck size
 } wavfile_header_t;
 
 
@@ -252,6 +251,21 @@ static int dump(vgm_t *vgm, file_reader_t *reader, vgmplay_ctrl_t *ctrl, const c
             ansicon_printf(ANSI_RED, "Unable to write to %s\n", out);
             break;
         }
+        header.chunk_id[0] = 'R'; header.chunk_id[1] = 'I'; header.chunk_id[2] = 'F'; header.chunk_id[3] = 'F';
+        header.chunk_size = vgm->complete_samples * 2 + 32;
+        header.format[0] = 'W'; header.format[1] = 'A'; header.format[2] = 'V'; header.format[3] = 'E';
+        header.subchunk1_id[0] = 'f'; header.subchunk1_id[1] = 'm'; header.subchunk1_id[2] = 't'; header.subchunk1_id[3] = ' ';
+        header.subchunk1_size = 16;
+        header.audio_format = 1;
+        header.channels = 1;
+        header.sample_rate = VGM_SAMPLE_RATE;
+        header.byte_rate = 2 * VGM_SAMPLE_RATE;
+        header.block_align = 2;
+        header.bits_per_sample = 16;
+        header.subchunk2_id[0] = 'd'; header.subchunk2_id[1] = 'a'; header.subchunk2_id[2] = 't'; header.subchunk2_id[3] = 'a';
+        header.subchunk2_size = vgm->complete_samples * 2;
+        fwrite(&header, sizeof(wavfile_header_t), 1, fd);
+
         vgm_prepare_playback(vgm, SAMPLE_RATE, false);
         vgm_nesapu_enable_channel(vgm, VGM_NESAPU_CHANNEL_ALL, false);
         vgm_nesapu_enable_channel(vgm, VGM_NESAPU_CHANNEL_PULSE1, ctrl->enable_apu_pulse1);
@@ -265,11 +279,18 @@ static int dump(vgm_t *vgm, file_reader_t *reader, vgmplay_ctrl_t *ctrl, const c
             nsamples = vgm_get_samples(vgm, buffer, 1024);
             if (nsamples > 0)
                 fwrite(buffer, sizeof(int16_t), (size_t)nsamples, fd);
+            else
+                break;
             played_samples += nsamples;
-            if (played_samples % 50000 == 0)
+            if (played_samples % 4096 == 0)
                 show_progress(ctrl, false);
         }
         show_progress(ctrl, true);
+        if (played_samples != ctrl->complete_samples)
+        {
+            r = -1;
+            break;
+        }
     } while (0);
     if (fd) fclose(fd);
     return r;
