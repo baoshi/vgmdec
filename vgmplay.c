@@ -366,18 +366,17 @@ int main(int argc, char *argv[])
         }
         ctrl.complete_samples = vgm->complete_samples;
 
-        ansicon_printf(ANSI_LIGHTBLUE, "VGM: Version %X.%X\n", vgm->version >> 8, vgm->version & 0xff);
+        ansicon_printf(ANSI_LIGHTBLUE, "Version        %X.%X\n", vgm->version >> 8, vgm->version & 0xff);
         if (vgm->loop_samples > 0)
-            ansicon_printf(ANSI_LIGHTBLUE, "VGM: Total samples: %d+%d (%.2fs+%.2fs)\n", vgm->total_samples, vgm->loop_samples, vgm->total_samples / 44100.0f, vgm->loop_samples / 44100.0f);
+            ansicon_printf(ANSI_LIGHTBLUE, "Total samples: %d+%d (%.2fs+%.2fs)\n", vgm->total_samples, vgm->loop_samples, vgm->total_samples / 44100.0f, vgm->loop_samples / 44100.0f);
         else
-            ansicon_printf(ANSI_LIGHTBLUE, "VGM: Total samples: %d (%.2fs)\n", vgm->total_samples, vgm->total_samples / 44100.0f);
-        ansicon_printf(ANSI_LIGHTBLUE, "VGM: Track Name:    %s\n", vgm->track_name_en);
-        ansicon_printf(ANSI_LIGHTBLUE, "VGM: Game Name:     %s\n", vgm->game_name_en);
-        ansicon_printf(ANSI_LIGHTBLUE, "VGM: Author:        %s\n", vgm->author_name_en);
-        ansicon_printf(ANSI_LIGHTBLUE, "VGM: Release Date:  %s\n", vgm->release_date);
-        ansicon_printf(ANSI_LIGHTBLUE, "VGM: Ripped by:     %s\n", vgm->creator);
-        ansicon_printf(ANSI_LIGHTBLUE, "VGM: Notes:         %s\n", vgm->notes);
-        printf("\n");
+            ansicon_printf(ANSI_LIGHTBLUE, "Total samples: %d (%.2fs)\n", vgm->total_samples, vgm->total_samples / 44100.0f);
+        ansicon_printf(ANSI_LIGHTBLUE, "Track Name:    %s\n", vgm->track_name_en);
+        ansicon_printf(ANSI_LIGHTBLUE, "Game Name:     %s\n", vgm->game_name_en);
+        ansicon_printf(ANSI_LIGHTBLUE, "Author:        %s\n", vgm->author_name_en);
+        ansicon_printf(ANSI_LIGHTBLUE, "Release Date:  %s\n", vgm->release_date);
+        ansicon_printf(ANSI_LIGHTBLUE, "Ripped by:     %s\n", vgm->creator);
+        ansicon_printf(ANSI_LIGHTBLUE, "Notes:         %s\n", vgm->notes);
         if (!dump_mode)
         {
             play(vgm, reader, &ctrl);
