@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
-            "args": ["-d", "samples/P.O.W. - Prisoners of War/03 Stage 1.vgm"],
+            "args": ["samples/Super Contra/01 Thunder Landing (Area 1).vgm"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

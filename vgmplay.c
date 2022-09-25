@@ -170,7 +170,7 @@ static int play(vgm_t *vgm, file_reader_t *reader, vgmplay_ctrl_t *ctrl)
                 break;
             }
             int ch = ansicon_getch_non_blocking();
-            if ((27 == ch) || ('q' == ch) || ('Q' == ch))
+            if (('q' == ch) || ('Q' == ch))
             {
                 break;
             }
