@@ -54,7 +54,7 @@
             "program": "${command:cmake.launchTargetPath}",
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "args": ["samples/Super Contra/01 Thunder Landing (Area 1).vgm"],
+            "args": ["samples/Double Dragon/01 Main Title.vgm"],
             "environment": [
                 {
                   "name": "PATH",
