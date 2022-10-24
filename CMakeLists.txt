@@ -48,7 +48,7 @@ elseif (UNIX AND NOT APPLE)
 	pkg_search_module(SDL2 REQUIRED sdl2)
 
 	# we want to know all warnings especially implicit conversion
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wconversion")
+	# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wconversion")
 	# turn off conversion warning on blip_buf.c
 	set_source_files_properties(blip_buf.c PROPERTIES COMPILE_FLAGS -Wno-conversion)
 
