@@ -28,7 +28,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
-            "args": ["test/wily.vgm"],
+            "args": ["samples/Double Dragon/01 Main Title.vgm"],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "environment": [],
